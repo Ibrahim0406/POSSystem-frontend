@@ -16,7 +16,8 @@
       "@spartan-ng/helm/*": ["./libs/ui/*"],
       "@spartan-ng/helm/*/src/index": ["./libs/ui/*/src/index.ts"],
       "@spartan-ng/helm/button": ["./libs/ui/button/src/index.ts"],
-      "@spartan-ng/helm/utils": ["./libs/ui/utils/src/index.ts"]
+      "@spartan-ng/helm/utils": ["./libs/ui/utils/src/index.ts"],
+      "@spartan-ng/helm/typography": ["./libs/ui/typography/src/index.ts"]
     }
   },
   "angularCompilerOptions": {
