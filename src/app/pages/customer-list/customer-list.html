@@ -1,0 +1,59 @@
+<div class="layout" [class.split]="hasDetail()">
+  <!-- LIJEVO: lista kupaca -->
+  <section class="left">
+    <div class="head">
+      <div>
+        <h1>Kupci</h1>
+        <p class="muted">
+          {{ customers().length }} {{ customers().length === 1 ? 'kupac' : 'kupaca' }}
+        </p>
+      </div>
+      <button hlmBtn (click)="showForm.set(true)">+ Novi</button>
+    </div>
+
+    <input
+      class="search"
+      type="search"
+      placeholder="Pretraži po imenu ili emailu…"
+      [value]="query()"
+      (input)="query.set($any($event.target).value)"
+    />
+
+    @if (error()) {
+      <div class="alert">{{ error() }}</div>
+    }
+
+    @if (loading()) {
+      <p class="muted center">Učitavanje…</p>
+    } @else if (customers().length === 0 && !error()) {
+      <div class="empty">
+        <p>{{ query() ? 'Nema rezultata za "' + query() + '".' : 'Još nema kupaca.' }}</p>
+      </div>
+    } @else {
+      <div class="grid">
+        @for (c of customers(); track c.id) {
+          <a class="item" [routerLink]="['/customers', c.id]" routerLinkActive="active">
+            <span class="avatar">{{ initials(c.fullName) }}</span>
+            <span class="info">
+              <strong>{{ c.fullName }}</strong>
+              <span class="muted">{{ c.email || 'bez emaila' }}</span>
+              <span class="muted">{{ c.phone || 'bez telefona' }}</span>
+            </span>
+            @if (c.createdAt && !hasDetail()) {
+              <span class="since muted">od {{ date(c.createdAt) | date: 'dd.MM.yyyy' }}</span>
+            }
+          </a>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- DESNO: detalji odabranog kupca (child route) -->
+  <section class="right" [hidden]="!hasDetail()">
+    <router-outlet (activate)="hasDetail.set(true)" (deactivate)="hasDetail.set(false)" />
+  </section>
+</div>
+
+@if (showForm()) {
+  <app-customer-form (saved)="onSaved($event)" (closed)="showForm.set(false)" />
+}
