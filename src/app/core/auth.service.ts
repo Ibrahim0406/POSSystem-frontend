@@ -15,8 +15,8 @@ export class AuthService {
   private platformId = inject(PLATFORM_ID);
   private isBrowser = isPlatformBrowser(this.platformId);
 
-  private _token = signal<string | null>(this.getInitialToken());
-  private _user = signal<AuthResponse['user'] | null>(this.getInitialUser());
+  private _token = signal<string | null>(this.getItem(TOKEN_KEY));
+  private _user = signal<AuthResponse['user'] | null>(JSON.parse(this.getItem(USER_KEY) ?? 'null'));
 
   readonly token = this._token.asReadonly();
   readonly user = this._user.asReadonly();
@@ -25,10 +25,8 @@ export class AuthService {
   login(email: string, password: string) {
     return this.http.post<AuthResponse>('/auth/signin', { email, password }).pipe(
       tap((res) => {
-        if (this.isBrowser) {
-          localStorage.setItem(TOKEN_KEY, res.jwt);
-          localStorage.setItem(USER_KEY, JSON.stringify(res.user));
-        }
+        this.setItem(TOKEN_KEY, res.jwt);
+        this.setItem(USER_KEY, JSON.stringify(res.user));
         this._token.set(res.jwt);
         this._user.set(res.user);
       }),
@@ -36,27 +34,27 @@ export class AuthService {
   }
 
   logout() {
-    if (this.isBrowser) {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-    }
+    this.removeItem(TOKEN_KEY);
+    this.removeItem(USER_KEY);
     this._token.set(null);
     this._user.set(null);
     this.router.navigate(['/login']);
   }
 
-  private getInitialToken(): string | null {
-    if (this.isBrowser) {
-      return localStorage.getItem(TOKEN_KEY);
-    }
-    return null;
+  // SSR-safe localStorage helpers
+  private getItem(key: string): string | null {
+    return this.isBrowser ? localStorage.getItem(key) : null;
   }
 
-  private getInitialUser(): AuthResponse['user'] | null {
+  private setItem(key: string, value: string): void {
     if (this.isBrowser) {
-      const rawUser = localStorage.getItem(USER_KEY);
-      return rawUser ? JSON.parse(rawUser) : null;
+      localStorage.setItem(key, value);
     }
-    return null;
+  }
+
+  private removeItem(key: string): void {
+    if (this.isBrowser) {
+      localStorage.removeItem(key);
+    }
   }
 }
