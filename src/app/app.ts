@@ -1,13 +1,15 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, inject, signal } from '@angular/core';
+import { RouterOutlet, RouterLink } from '@angular/router';
 import { HlmButton } from '@spartan-ng/helm/button';
-import { HlmH1 } from '@spartan-ng/helm/typography';
+import { AuthService } from './core/auth.service';
+
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, HlmButton, HlmH1],
+  imports: [RouterOutlet, RouterLink, HlmButton],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
 export class App {
+  auth = inject(AuthService);
   protected readonly title = signal('POSSystem-frontend');
 }

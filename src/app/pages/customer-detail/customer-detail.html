@@ -1,0 +1,97 @@
+<a routerLink="/customers" class="back">← Svi kupci</a>
+
+@if (loading()) {
+  <p class="muted center">Učitavanje…</p>
+} @else if (error() && !customer()) {
+  <div class="alert">{{ error() }}</div>
+} @else if (customer(); as c) {
+  <section class="profile">
+    <span class="avatar">{{ c.fullName.slice(0, 1).toUpperCase() }}</span>
+    <div class="who">
+      <h1>{{ c.fullName }}</h1>
+      <div class="contact muted">
+        <span>✉ {{ c.email || '—' }}</span>
+        <span>☎ {{ c.phone || '—' }}</span>
+        @if (c.createdAt) {
+          <span>Kupac od {{ date(c.createdAt) | date: 'dd.MM.yyyy' }}</span>
+        }
+      </div>
+    </div>
+    <div class="btns">
+      <button hlmBtn variant="outline" (click)="editing.set(true)">Uredi</button>
+      <button hlmBtn variant="destructive" (click)="remove()">Obriši</button>
+    </div>
+  </section>
+
+  @if (error()) {
+    <div class="alert">{{ error() }}</div>
+  }
+
+  <section class="stats">
+    <div class="stat">
+      <span class="label">Ukupno narudžbi</span>
+      <span class="value">{{ totalOrders() }}</span>
+    </div>
+    <div class="stat">
+      <span class="label">Ukupno potrošeno</span>
+      <span class="value">{{ totalSpent() | currency }}</span>
+    </div>
+    <div class="stat accent">
+      <span class="label">Loyalty bodovi</span>
+      <span class="value">⭐ {{ loyaltyPoints() }}</span>
+      <span class="hint">1 bod na svakih {{ spendPerPoint }} potrošenih</span>
+    </div>
+    <div class="stat">
+      <span class="label">Prosječna narudžba</span>
+      <span class="value">{{ avgOrder() | currency }}</span>
+    </div>
+  </section>
+
+  <h2>Historija kupovine</h2>
+  @if (sortedOrders().length === 0) {
+    <div class="empty">Ovaj kupac još nema narudžbi.</div>
+  } @else {
+    <div class="orders">
+      @for (o of sortedOrders(); track o.id) {
+        <div class="order">
+          <button class="order-row" (click)="toggle(o.id)">
+            <span class="oid">#{{ o.id }}</span>
+            <span class="odate">{{ date(o.createdAt) | date: 'dd.MM.yyyy HH:mm' }}</span>
+            <span class="muted obranch">{{ o.branch?.name || '' }}</span>
+            <span class="pay">{{ o.paymentType || '—' }}</span>
+            <span class="muted">{{ o.items.length }} stavki</span>
+            <strong class="total">{{ o.totalAmount | currency }}</strong>
+            <span class="chev">{{ expanded().has(o.id) ? '▲' : '▼' }}</span>
+          </button>
+
+          @if (expanded().has(o.id)) {
+            <table class="items">
+              <thead>
+                <tr>
+                  <th>Proizvod</th>
+                  <th>Kol.</th>
+                  <th>Cijena</th>
+                  <th>Ukupno</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (it of o.items; track it.id) {
+                  <tr>
+                    <td>{{ it.product?.name || 'Proizvod #' + it.productId }}</td>
+                    <td>{{ it.quantity }}</td>
+                    <td>{{ it.price / (it.quantity || 1) | currency }}</td>
+                    <td>{{ it.price | currency }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (editing()) {
+    <app-customer-form [customer]="c" (saved)="onSaved($event)" (closed)="editing.set(false)" />
+  }
+}

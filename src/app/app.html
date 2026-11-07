@@ -1,42 +1,12 @@
-<main class="min-h-screen bg-background p-8 font-sans text-foreground">
-  <div class="mx-auto max-w-3xl space-y-8">
-    <header class="border-b border-border pb-4">
-      <h1 hlmH1>POS System — Demo UI</h1>
-      <p class="text-muted-foreground">Pregled spartan/ui button komponenti</p>
-    </header>
-
-    <section class="space-y-3">
-      <h2 class="text-xl font-semibold">Varijante dugmadi</h2>
-      <div class="flex flex-wrap gap-3">
-        <button hlmBtn>Primary (Default)</button>
-        <button hlmBtn variant="secondary">Secondary</button>
-        <button hlmBtn variant="outline">Outline</button>
-        <button hlmBtn variant="destructive">Destructive</button>
-        <button hlmBtn variant="ghost">Ghost</button>
-        <button hlmBtn variant="link">Link</button>
-      </div>
-    </section>
-
-    <section class="space-y-3">
-      <h2 class="text-xl font-semibold">Veličine dugmadi</h2>
-      <div class="flex flex-wrap items-center gap-3">
-        <button hlmBtn size="sm">Small (sm)</button>
-        <button hlmBtn size="default">Default</button>
-        <button hlmBtn size="lg">Large (lg)</button>
-        <button hlmBtn size="icon" aria-label="Settings">⚡</button>
-      </div>
-    </section>
-
-    <section class="space-y-3">
-      <h2 class="text-xl font-semibold">Stanja dugmadi</h2>
-      <div class="flex flex-wrap gap-3">
-        <button hlmBtn disabled>Onemogućeno (Disabled)</button>
-        <button hlmBtn variant="outline" disabled>Disabled Outline</button>
-      </div>
-    </section>
-
-    <div class="pt-4">
-      <router-outlet></router-outlet>
+@if (auth.isLoggedIn()) {
+  <header class="top">
+    <a routerLink="/customers" class="brand">🛒 Customer Management</a>
+    <div class="right">
+      <span class="muted">{{ auth.user()?.fullName }}</span>
+      <button hlmBtn variant="outline" size="sm" (click)="auth.logout()">Odjava</button>
     </div>
-  </div>
-</main>
+  </header>
+  <main class="container"><router-outlet /></main>
+} @else {
+  <router-outlet />
+}
