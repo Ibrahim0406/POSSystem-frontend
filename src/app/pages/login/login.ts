@@ -2,10 +2,11 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { HlmButton } from '@spartan-ng/helm/button/src';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, HlmButton],
   template: `
     <div class="wrap">
       <form class="card" [formGroup]="form" (ngSubmit)="submit()">

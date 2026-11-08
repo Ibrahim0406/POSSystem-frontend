@@ -3,7 +3,9 @@
     <a routerLink="/customers" class="brand">🛒 Customer Management</a>
     <div class="right">
       <span class="muted">{{ auth.user()?.fullName }}</span>
-      <button hlmBtn variant="outline" size="sm" (click)="auth.logout()">Odjava</button>
+      <div>
+        <button hlmBtn variant="destructive" (click)="auth.logout()">Odjava</button>
+      </div>
     </div>
   </header>
   <main class="container"><router-outlet /></main>

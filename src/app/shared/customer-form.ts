@@ -2,10 +2,10 @@ import { Component, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Customer } from '../core/models';
 import { CustomerService } from '../core/customer.service';
-
+import { HlmButton } from '@spartan-ng/helm/button/src';
 @Component({
   selector: 'app-customer-form',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, HlmButton],
   template: `
     <div class="backdrop" (click)="closed.emit()">
       <form

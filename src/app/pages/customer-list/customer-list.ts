@@ -7,10 +7,11 @@ import { CustomerService } from '../../core/customer.service';
 import { Customer } from '../../core/models';
 import { toDate } from '../../core/loyalty';
 import { CustomerForm } from '../../shared/customer-form';
+import { HlmButton } from '@spartan-ng/helm/button/src';
 
 @Component({
   selector: 'app-customer-list',
-  imports: [DatePipe, CustomerForm, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [DatePipe, CustomerForm, RouterLink, RouterLinkActive, RouterOutlet, HlmButton],
   templateUrl: './customer-list.html',
   styleUrl: './customer-list.css',
 })
