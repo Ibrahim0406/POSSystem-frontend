@@ -1,0 +1,28 @@
+.top {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.brand {
+  font-weight: 700;
+  font-size: 17px;
+  color: #0f172a;
+  text-decoration: none;
+}
+.right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+}
