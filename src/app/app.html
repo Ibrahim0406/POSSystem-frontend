@@ -1,6 +1,15 @@
 @if (auth.isLoggedIn()) {
   <header class="top">
-    <a routerLink="/customers" class="brand">🛒 Customer Management</a>
+    <a routerLink="/shift-summary" class="brand">POS System</a>
+    <nav class="main-nav" aria-label="Glavna navigacija">
+      <a
+        routerLink="/shift-summary"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        >Smjena</a
+      >
+      <a routerLink="/customers" routerLinkActive="active">Kupci</a>
+    </nav>
     <div class="right">
       <span class="muted">{{ auth.user()?.fullName }}</span>
       <div>

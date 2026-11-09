@@ -1,11 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
-import { RouterOutlet, RouterLink } from '@angular/router';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from './core/auth.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, HlmButton],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, HlmButton],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })

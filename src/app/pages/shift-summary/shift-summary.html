@@ -1,0 +1,219 @@
+<main class="shift-page">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">POS / SMJENE</p>
+      <h1>Shift summary</h1>
+      <p class="subheading">Pregled prometa i aktivnosti za smjenu.</p>
+    </div>
+    <span class="shift-status"><span class="status-dot"></span> {{ shiftStatus() }}</span>
+  </header>
+
+  @if (loading()) {
+    <p class="demo-notice" role="status">Učitavanje izvještaja smjene…</p>
+  } @else if (error()) {
+    <p class="demo-notice" role="alert">
+      {{ error() }} <button type="button" (click)="load()">Pokušaj ponovo</button>
+    </p>
+  }
+
+  @if (report(); as shift) {
+    <div class="dashboard-grid">
+      <section class="panel shift-information">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">PREGLED SMJENE</p>
+            <h2>Shift information</h2>
+          </div>
+          <span class="panel-icon cashier-icon" aria-hidden="true">S</span>
+        </div>
+        <div class="cashier-row">
+          <span class="cashier-avatar" aria-hidden="true">{{
+            cashier().slice(0, 1).toUpperCase()
+          }}</span>
+          <span
+            ><span class="field-label">Blagajnik</span><strong>{{ cashier() }}</strong></span
+          >
+          <span class="role-tag">Cashier</span>
+        </div>
+        <dl class="shift-times">
+          <div>
+            <dt>Početak smjene</dt>
+            <dd>{{ date(shift.shiftStart) | date: 'dd.MM.yyyy, HH:mm' }}</dd>
+          </div>
+          <div>
+            <dt>Završetak smjene</dt>
+            @if (shift.shiftEnd) {
+              <dd>{{ date(shift.shiftEnd) | date: 'dd.MM.yyyy, HH:mm' }}</dd>
+            } @else {
+              <dd>U toku</dd>
+            }
+          </div>
+        </dl>
+        <div class="duration-row">
+          <span>Trajanje smjene</span><strong>{{ duration() }}</strong>
+        </div>
+      </section>
+
+      <section class="panel sales-summary">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">FINANSIJE</p>
+            <h2>Sales summary</h2>
+          </div>
+          <span class="panel-icon sales-icon" aria-hidden="true">↗</span>
+        </div>
+        <div class="sales-grid">
+          <div class="metric">
+            <span class="field-label">Ukupno narudžbi</span><strong>{{ totalOrders() }}</strong>
+          </div>
+          <div class="metric">
+            <span class="field-label">Ukupna prodaja</span
+            ><strong>{{ totalSales() | currency: 'EUR' }}</strong>
+          </div>
+          <div class="metric refund-metric">
+            <span class="field-label">Ukupno refundirano</span
+            ><strong>−{{ totalRefunds() | currency: 'EUR' }}</strong>
+          </div>
+          <div class="metric net-metric">
+            <span class="field-label">Neto prodaja</span
+            ><strong>{{ netSales() | currency: 'EUR' }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel payment-summary">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">NAPLATA</p>
+            <h2>Payment summary</h2>
+          </div>
+          <span class="panel-icon payment-icon" aria-hidden="true">€</span>
+        </div>
+        <div class="payment-list">
+          @for (payment of payments(); track payment.label) {
+            <div class="payment-row">
+              <div class="payment-label">
+                <span>{{ payment.label }}</span
+                ><strong>{{ payment.amount | currency: 'EUR' }}</strong>
+              </div>
+              <div
+                class="bar-track"
+                role="img"
+                [attr.aria-label]="payment.label + ': ' + payment.share + '%'"
+              >
+                <span class="bar-fill" [style.width.%]="payment.share"></span>
+              </div>
+              <span class="payment-share">{{ payment.share }}% prodaje</span>
+            </div>
+          }
+        </div>
+      </section>
+
+      <section class="panel top-items">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">PROIZVODI</p>
+            <h2>Top selling items</h2>
+          </div>
+          <span class="panel-icon items-icon" aria-hidden="true">#</span>
+        </div>
+        @if (topItems().length) {
+          <div class="top-list">
+            @for (item of topItems(); track item.name; let index = $index) {
+              <div class="top-item">
+                <span class="item-rank">0{{ index + 1 }}</span>
+                <div class="item-info">
+                  <div class="item-label">
+                    <strong>{{ item.name }}</strong>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="empty-state">Nema prodanih artikala u ovoj smjeni.</p>
+        }
+      </section>
+
+      <section class="panel recent-orders">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">TRANSAKCIJE</p>
+            <h2>Recent orders</h2>
+          </div>
+          <span class="list-count">{{ recentOrders().length }} narudžbi</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Narudžba</th>
+                <th>Kupac</th>
+                <th>Vrijeme</th>
+                <th>Plaćanje</th>
+                <th class="amount-cell">Iznos</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (order of recentOrders(); track order.id) {
+                <tr>
+                  <td class="order-number">#{{ order.id }}</td>
+                  <td>
+                    {{
+                      order.customer?.fullName ||
+                        (order.customerId ? 'Kupac #' + order.customerId : 'Kupac')
+                    }}
+                  </td>
+                  <td>{{ date(order.createdAt) | date: 'HH:mm' }}</td>
+                  <td>
+                    <span
+                      class="payment-tag"
+                      [class.card-tag]="order.paymentType === 'CARD'"
+                      [class.cash-tag]="order.paymentType === 'CASH'"
+                      >{{ paymentTypeLabel(order.paymentType) }}</span
+                    >
+                  </td>
+                  <td class="amount-cell">
+                    <strong>{{ order.totalAmount | currency: 'EUR' }}</strong>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel refunds-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">POVRATI NOVCA</p>
+            <h2>Refunds processed</h2>
+          </div>
+          <span class="refund-total">−{{ totalRefunds() | currency: 'EUR' }}</span>
+        </div>
+        @if (refunds().length) {
+          <div class="refund-list">
+            @for (refund of refunds(); track refund.id) {
+              <div class="refund-row">
+                <span class="refund-mark" aria-hidden="true">↩</span>
+                <div class="refund-info">
+                  <strong
+                    >Refund #{{ refund.id }}
+                    <span>za narudžbu #{{ refundOrderId(refund) }}</span></strong
+                  >
+                  <span
+                    >{{ refund.reason || 'Refund procesuiran' }} ·
+                    {{ date(refund.createdAt) | date: 'HH:mm' }}</span
+                  >
+                </div>
+                <strong class="refund-amount">−{{ refund.amount | currency: 'EUR' }}</strong>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="empty-state">U ovoj smjeni nije bilo refundova.</p>
+        }
+      </section>
+    </div>
+  }
+</main>
