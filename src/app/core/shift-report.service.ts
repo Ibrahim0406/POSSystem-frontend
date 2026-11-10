@@ -10,6 +10,14 @@ export class ShiftReportService {
     return this.http.get<ShiftReport>('/api/shift-reports/current');
   }
 
+  start() {
+    return this.http.post<ShiftReport>('/api/shift-reports/start', null);
+  }
+
+  endCurrent() {
+    return this.http.patch<ShiftReport>('/api/shift-reports/end', null);
+  }
+
   getByCashier(cashierId: number) {
     return this.http.get<ShiftReport[]>(`/api/shift-reports/cashier/${cashierId}`);
   }

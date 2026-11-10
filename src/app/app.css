@@ -1,63 +1,95 @@
-.top {
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 12px 24px;
+:host {
+  display: block;
+  min-height: 100vh;
+  color: #202b2b;
+}
+.app-shell {
+  min-height: 100vh;
+  background: #f7f8f4;
+}
+.top-left {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 12px;
+}
+.brand {
+  color: #202b2b;
+  font-size: 16px;
+  font-weight: 750;
+  text-decoration: none;
+}
+.hamburger-trigger {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-color: #e7e9e3;
+  color: #34423b;
+  font-size: 17px;
+}
+.nav-dropdown {
+  width: 190px;
+}
+.nav-dropdown [hlmDropdownMenuItem].current {
+  background: #edf5f0;
+  color: #2f725c;
+}
+.top {
   position: sticky;
   top: 0;
   z-index: 10;
-}
-.brand {
-  font-weight: 700;
-  font-size: 17px;
-  color: #0f172a;
-  text-decoration: none;
-}
-.main-nav {
   display: flex;
-  flex: 1;
+  min-height: 58px;
   align-items: center;
-  gap: 6px;
-  margin-left: 32px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 24px;
+  border-bottom: 1px solid #e2e8e0;
+  background: rgb(255 255 255 / 94%);
+  backdrop-filter: blur(10px);
 }
-.main-nav a {
-  padding: 8px 10px;
-  border-radius: 5px;
-  color: #64716b;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-}
-.main-nav a:hover,
-.main-nav a.active {
-  background: #edf5f0;
-  color: #2f725c;
+.top-caption {
+  color: #78827e;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.7px;
 }
 .right {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 14px;
+  font-size: 13px;
 }
 .container {
-  max-width: 1440px;
+  max-width: 1500px;
   margin: 0 auto;
-  padding: 24px 16px 60px;
+  padding: 20px 24px 54px;
 }
-@media (max-width: 600px) {
+@media (max-width: 760px) {
   .top {
-    flex-wrap: wrap;
-    gap: 10px;
-    padding: 10px 14px;
+    padding: 10px 12px;
   }
-  .main-nav {
-    order: 3;
-    flex-basis: 100%;
-    margin-left: -8px;
+  .top-caption {
+    display: none;
+  }
+  .right {
+    gap: 7px;
+    font-size: 11px;
   }
   .container {
-    padding: 16px 12px 40px;
+    padding: 14px 12px 36px;
+  }
+}
+
+@media print {
+  .top {
+    display: none !important;
+  }
+  .app-shell {
+    min-height: 0;
+    background: #fff;
+  }
+  .container {
+    max-width: none;
+    padding: 0;
   }
 }

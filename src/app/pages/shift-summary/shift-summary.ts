@@ -1,7 +1,8 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe, DatePipe, DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, finalize, interval, map, of, startWith } from 'rxjs';
+import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../../core/auth.service';
 import { PaymentType, ShiftRefund, ShiftReport } from '../../core/models';
 import { ShiftReportService } from '../../core/shift-report.service';
@@ -9,7 +10,7 @@ import { toDate } from '../../core/loyalty';
 
 @Component({
   selector: 'app-shift-summary',
-  imports: [CurrencyPipe, DatePipe],
+  imports: [CurrencyPipe, DatePipe, HlmButton],
   templateUrl: './shift-summary.html',
   styleUrl: './shift-summary.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -17,19 +18,23 @@ import { toDate } from '../../core/loyalty';
 export class ShiftSummary {
   private auth = inject(AuthService);
   private api = inject(ShiftReportService);
+  private document = inject(DOCUMENT);
   private readonly clock = signal(new Date());
 
   readonly report = signal<ShiftReport | null>(null);
   readonly loading = signal(true);
+  readonly ending = signal(false);
+  readonly starting = signal(false);
   readonly error = signal('');
+  readonly actionError = signal('');
   readonly date = toDate;
   readonly cashier = computed(
     () => this.report()?.cashier?.fullName ?? this.auth.user()?.fullName ?? '—',
   );
   readonly shiftStatus = computed(() => {
     const report = this.report();
-    if (!report) return this.loading() ? 'Učitavanje…' : 'Nema izvještaja';
-    return report.shiftEnd ? 'Smjena završena' : 'Smjena u toku';
+    if (!report) return this.loading() ? 'Loading…' : 'No report';
+    return report.shiftEnd ? 'Shift completed' : 'Shift in progress';
   });
   readonly totalOrders = computed(() => this.report()?.totalOrders ?? 0);
   readonly totalSales = computed(() => this.report()?.totalSales ?? 0);
@@ -99,19 +104,57 @@ export class ShiftSummary {
         if (!report) {
           this.error.set(
             historyRequestFailed
-              ? 'Ne mogu učitati izvještaj s backend servera. Provjeri da li backend radi i da li si prijavljen/a.'
-              : 'Nema izvještaja smjene za ovog blagajnika. Pokreni smjenu pa pokušaj ponovo.',
+              ? 'Unable to load the shift report. Check that the backend is running and you are signed in.'
+              : 'No shift report was found for this cashier. Start a shift and try again.',
           );
         }
+      });
+  }
+
+  printSummary() {
+    this.document.defaultView?.print();
+  }
+
+  endShift() {
+    const report = this.report();
+    const confirmed = this.document.defaultView?.confirm('End this shift?');
+    if (!report || report.shiftEnd || !confirmed || this.ending()) return;
+
+    this.actionError.set('');
+    this.ending.set(true);
+    this.api
+      .endCurrent()
+      .pipe(finalize(() => this.ending.set(false)))
+      .subscribe({
+        next: (endedReport) => this.report.set(endedReport),
+        error: () =>
+          this.actionError.set(
+            'The shift could not be ended. Check the backend and the shift branch, then try again.',
+          ),
+      });
+  }
+
+  startShift() {
+    if (!this.report()?.shiftEnd || this.starting()) return;
+
+    this.actionError.set('');
+    this.starting.set(true);
+    this.api
+      .start()
+      .pipe(finalize(() => this.starting.set(false)))
+      .subscribe({
+        next: () => this.load(),
+        error: () =>
+          this.actionError.set('The shift could not be started. Check the backend and try again.'),
       });
   }
 
   paymentLabel(type: PaymentType) {
     switch (type) {
       case 'CASH':
-        return 'Gotovina';
+        return 'Cash';
       case 'CARD':
-        return 'Kartica';
+        return 'Card';
       case 'UPI':
         return 'UPI';
     }
