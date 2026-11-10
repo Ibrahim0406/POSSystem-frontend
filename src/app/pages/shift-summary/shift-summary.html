@@ -1,0 +1,254 @@
+<main class="shift-page">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">POS / SHIFTS</p>
+      <h1>Shift summary</h1>
+      <p class="subheading">Sales, payment and transaction overview for this shift.</p>
+    </div>
+    <div class="heading-actions">
+      <span class="shift-status"><span class="status-dot"></span> {{ shiftStatus() }}</span>
+      @if (report(); as shift) {
+        @if (!shift.shiftEnd) {
+          <button
+            hlmBtn
+            size="lg"
+            class="summary-action"
+            variant="destructive"
+            [disabled]="ending()"
+            (click)="endShift()"
+          >
+            {{ ending() ? 'Ending shift…' : 'End shift' }}
+          </button>
+        } @else {
+          <button
+            hlmBtn
+            size="lg"
+            class="summary-action"
+            variant="default"
+            [disabled]="starting()"
+            (click)="startShift()"
+          >
+            {{ starting() ? 'Starting shift…' : 'Start shift' }}
+          </button>
+        }
+        <button hlmBtn size="lg" class="summary-action" variant="outline" (click)="printSummary()">
+          Print summary
+        </button>
+      }
+    </div>
+  </header>
+
+  @if (actionError()) {
+    <p class="demo-notice" role="alert">{{ actionError() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="demo-notice" role="status">Loading shift report…</p>
+  } @else if (error()) {
+    <p class="demo-notice" role="alert">
+      {{ error() }}
+      <button hlmBtn variant="outline" type="button" (click)="load()">Try again</button>
+    </p>
+  }
+
+  @if (report(); as shift) {
+    <div class="dashboard-grid">
+      <section class="panel shift-information">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">SHIFT DETAILS</p>
+            <h2>Shift information</h2>
+          </div>
+          <span class="panel-icon cashier-icon" aria-hidden="true">S</span>
+        </div>
+        <div class="cashier-row">
+          <span class="cashier-avatar" aria-hidden="true">{{
+            cashier().slice(0, 1).toUpperCase()
+          }}</span>
+          <span
+            ><span class="field-label">Cashier</span><strong>{{ cashier() }}</strong></span
+          >
+          <span class="role-tag">Cashier</span>
+        </div>
+        <dl class="shift-times">
+          <div>
+            <dt>Shift start</dt>
+            <dd>{{ date(shift.shiftStart) | date: 'MMM d, y, h:mm a' }}</dd>
+          </div>
+          <div>
+            <dt>Shift end</dt>
+            @if (shift.shiftEnd) {
+              <dd>{{ date(shift.shiftEnd) | date: 'MMM d, y, h:mm a' }}</dd>
+            } @else {
+              <dd>In progress</dd>
+            }
+          </div>
+        </dl>
+        <div class="duration-row">
+          <span>Shift duration</span><strong>{{ duration() }}</strong>
+        </div>
+      </section>
+
+      <section class="panel sales-summary">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">FINANCIALS</p>
+            <h2>Sales summary</h2>
+          </div>
+          <span class="panel-icon sales-icon" aria-hidden="true">↗</span>
+        </div>
+        <div class="sales-grid">
+          <div class="metric">
+            <span class="field-label">Total orders</span><strong>{{ totalOrders() }}</strong>
+          </div>
+          <div class="metric">
+            <span class="field-label">Total sales</span
+            ><strong>{{ totalSales() | currency: 'EUR' }}</strong>
+          </div>
+          <div class="metric refund-metric">
+            <span class="field-label">Total refunds</span
+            ><strong>−{{ totalRefunds() | currency: 'EUR' }}</strong>
+          </div>
+          <div class="metric net-metric">
+            <span class="field-label">Net sales</span
+            ><strong>{{ netSales() | currency: 'EUR' }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel payment-summary">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">PAYMENTS</p>
+            <h2>Payment summary</h2>
+          </div>
+          <span class="panel-icon payment-icon" aria-hidden="true">€</span>
+        </div>
+        <div class="payment-list">
+          @for (payment of payments(); track payment.label) {
+            <div class="payment-row">
+              <div class="payment-label">
+                <span>{{ payment.label }}</span
+                ><strong>{{ payment.amount | currency: 'EUR' }}</strong>
+              </div>
+              <div
+                class="bar-track"
+                role="img"
+                [attr.aria-label]="payment.label + ': ' + payment.share + '%'"
+              >
+                <span class="bar-fill" [style.width.%]="payment.share"></span>
+              </div>
+              <span class="payment-share">{{ payment.share }}% of sales</span>
+            </div>
+          }
+        </div>
+      </section>
+
+      <section class="panel top-items">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">PROIZVODI</p>
+            <h2>Top selling items</h2>
+          </div>
+          <span class="panel-icon items-icon" aria-hidden="true">#</span>
+        </div>
+        @if (topItems().length) {
+          <div class="top-list">
+            @for (item of topItems(); track item.name; let index = $index) {
+              <div class="top-item">
+                <span class="item-rank">0{{ index + 1 }}</span>
+                <div class="item-info">
+                  <div class="item-label">
+                    <strong>{{ item.name }}</strong>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="empty-state">No items sold during this shift.</p>
+        }
+      </section>
+
+      <section class="panel recent-orders">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">TRANSAKCIJE</p>
+            <h2>Recent orders</h2>
+          </div>
+          <span class="list-count">{{ recentOrders().length }} orders</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Time</th>
+                <th>Payment</th>
+                <th class="amount-cell">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (order of recentOrders(); track order.id) {
+                <tr>
+                  <td class="order-number">#{{ order.id }}</td>
+                  <td>
+                    {{
+                      order.customer?.fullName ||
+                        (order.customerId ? 'Customer #' + order.customerId : 'Customer')
+                    }}
+                  </td>
+                  <td>{{ date(order.createdAt) | date: 'HH:mm' }}</td>
+                  <td>
+                    <span
+                      class="payment-tag"
+                      [class.card-tag]="order.paymentType === 'CARD'"
+                      [class.cash-tag]="order.paymentType === 'CASH'"
+                      >{{ paymentTypeLabel(order.paymentType) }}</span
+                    >
+                  </td>
+                  <td class="amount-cell">
+                    <strong>{{ order.totalAmount | currency: 'EUR' }}</strong>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel refunds-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">REFUNDS</p>
+            <h2>Refunds processed</h2>
+          </div>
+          <span class="refund-total">−{{ totalRefunds() | currency: 'EUR' }}</span>
+        </div>
+        @if (refunds().length) {
+          <div class="refund-list">
+            @for (refund of refunds(); track refund.id) {
+              <div class="refund-row">
+                <span class="refund-mark" aria-hidden="true">↩</span>
+                <div class="refund-info">
+                  <strong
+                    >Refund #{{ refund.id }}
+                    <span>for order #{{ refundOrderId(refund) }}</span></strong
+                  >
+                  <span
+                    >{{ refund.reason || 'Refund processed' }} ·
+                    {{ date(refund.createdAt) | date: 'HH:mm' }}</span
+                  >
+                </div>
+                <strong class="refund-amount">−{{ refund.amount | currency: 'EUR' }}</strong>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="empty-state">No refunds were processed during this shift.</p>
+        }
+      </section>
+    </div>
+  }
+</main>

@@ -1,14 +1,42 @@
 @if (auth.isLoggedIn()) {
-  <header class="top">
-    <a routerLink="/customers" class="brand">🛒 Customer Management</a>
-    <div class="right">
-      <span class="muted">{{ auth.user()?.fullName }}</span>
-      <div>
-        <button hlmBtn variant="destructive" (click)="auth.logout()">Odjava</button>
+  <div class="app-shell">
+    <header class="top">
+      <div class="top-left">
+        <button
+          hlmBtn
+          variant="outline"
+          class="hamburger-trigger"
+          [hlmDropdownMenuTrigger]="navigationMenu"
+          side="bottom"
+          aria-label="Otvori navigaciju"
+          aria-haspopup="menu"
+        >
+          <span aria-hidden="true">☰</span>
+        </button>
+        <ng-template #navigationMenu>
+          <div hlmDropdownMenu class="nav-dropdown">
+            <span hlmDropdownMenuLabel>POS System</span>
+            <a
+              hlmDropdownMenuItem
+              routerLink="/shift-summary"
+              routerLinkActive="current"
+              [routerLinkActiveOptions]="{ exact: true }"
+            >
+              Shift summary
+            </a>
+            <a hlmDropdownMenuItem routerLink="/customers" routerLinkActive="current">Customers</a>
+            <div hlmDropdownMenuSeparator></div>
+            <button hlmDropdownMenuItem (click)="auth.logout()">Sign out</button>
+          </div>
+        </ng-template>
+        <a routerLink="/shift-summary" class="brand">POS System</a>
       </div>
-    </div>
-  </header>
-  <main class="container"><router-outlet /></main>
+      <div class="right">
+        <span class="muted">{{ auth.user()?.fullName }}</span>
+      </div>
+    </header>
+    <main class="container"><router-outlet /></main>
+  </div>
 } @else {
   <router-outlet />
 }

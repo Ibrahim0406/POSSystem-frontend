@@ -1,0 +1,470 @@
+:host {
+  display: block;
+  --ink: #202b2b;
+  --muted: #78827e;
+  --line: #e7e9e3;
+  --green: #2f725c;
+  --green-light: #edf5f0;
+  --orange: #b75a3f;
+  color: var(--ink);
+}
+.shift-page {
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 24px 0 48px;
+}
+.page-heading,
+.panel-heading,
+.cashier-row,
+.duration-row,
+.payment-label,
+.item-label,
+.refund-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.page-heading {
+  margin-bottom: 20px;
+}
+.heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.summary-action {
+  min-height: 46px;
+  padding: 0 18px;
+  font-size: 14px;
+}
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 800;
+}
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+h1 {
+  margin-bottom: 5px;
+  font-size: 32px;
+  line-height: 1.15;
+}
+.subheading {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+.shift-status,
+.role-tag,
+.list-count,
+.refund-total {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 650;
+}
+.shift-status {
+  gap: 8px;
+  padding: 11px 15px;
+  border: 1px solid #d6e7dc;
+  border-radius: 6px;
+  background: #f2f8f3;
+  color: #386e53;
+  font-size: 14px;
+}
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #4c9a69;
+}
+.demo-notice {
+  margin-bottom: 16px;
+  padding: 10px 13px;
+  border-left: 3px solid #bf7a3d;
+  background: #fbf5eb;
+  color: #77562f;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.panel {
+  min-width: 0;
+  padding: 23px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+}
+.panel-heading {
+  gap: 10px;
+  margin-bottom: 17px;
+}
+.panel-heading .eyebrow {
+  margin-bottom: 4px;
+}
+h2 {
+  margin-bottom: 0;
+  font-size: 18px;
+  font-weight: 750;
+}
+.panel-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.cashier-icon,
+.items-icon {
+  background: #eff3ea;
+  color: #56744a;
+}
+.sales-icon,
+.payment-icon {
+  background: var(--green-light);
+  color: var(--green);
+}
+.cashier-row {
+  justify-content: flex-start;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eff0ec;
+}
+.cashier-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  width: 37px;
+  height: 37px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e9f1eb;
+  color: var(--green);
+  font-weight: 750;
+}
+.cashier-row > span:nth-child(2) {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.cashier-row strong,
+.field-label {
+  display: block;
+}
+.cashier-row strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.field-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.role-tag {
+  margin-left: auto;
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: #f2f3ef;
+  color: #67716c;
+  font-size: 10px;
+}
+.shift-times {
+  display: grid;
+  gap: 11px;
+  margin: 15px 0;
+}
+.shift-times div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.shift-times dt,
+.duration-row {
+  color: var(--muted);
+  font-size: 11px;
+}
+.shift-times dd {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: right;
+}
+.duration-row {
+  padding: 10px;
+  border-radius: 5px;
+  background: #f7f8f4;
+}
+.duration-row strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+.sales-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px 10px;
+}
+.metric {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.metric strong {
+  font-size: 20px;
+  line-height: 1.2;
+}
+.refund-metric strong,
+.refund-total,
+.refund-amount {
+  color: var(--orange);
+}
+.net-metric {
+  padding: 9px;
+  border-radius: 5px;
+  background: var(--green-light);
+}
+.net-metric strong {
+  color: var(--green);
+}
+.payment-list,
+.top-list,
+.refund-list {
+  display: grid;
+  gap: 14px;
+}
+.payment-row {
+  display: grid;
+  gap: 6px;
+}
+.payment-label {
+  font-size: 12px;
+}
+.payment-label strong {
+  font-size: 12px;
+}
+.bar-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #eff1ed;
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #53836b;
+}
+.payment-row:nth-child(2) .bar-fill {
+  background: #cb9550;
+}
+.payment-row:nth-child(3) .bar-fill {
+  background: #6d8b9b;
+}
+.payment-share {
+  color: var(--muted);
+  font-size: 10px;
+}
+.top-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.item-rank {
+  color: #a0a9a2;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.item-info {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.item-label {
+  font-size: 11px;
+}
+.list-count {
+  color: var(--muted);
+  font-size: 11px;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  text-align: left;
+  white-space: nowrap;
+}
+th {
+  padding: 0 9px 10px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+td {
+  padding: 10px 9px;
+  border-top: 1px solid #eff0ec;
+}
+.order-number {
+  color: var(--green);
+  font-weight: 750;
+}
+.payment-tag {
+  display: inline-block;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: #eef2f4;
+  color: #506876;
+  font-size: 10px;
+}
+.card-tag {
+  background: #edf4ef;
+  color: #386e53;
+}
+.cash-tag {
+  background: #fbf3e8;
+  color: #8d632f;
+}
+.amount-cell {
+  text-align: right;
+}
+.refund-total {
+  font-size: 13px;
+}
+.refund-row {
+  justify-content: flex-start;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eff0ec;
+}
+.refund-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.refund-mark {
+  display: grid;
+  flex: 0 0 auto;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fbefeb;
+  color: var(--orange);
+  font-size: 15px;
+}
+.refund-info {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+.refund-info strong {
+  font-size: 11px;
+}
+.refund-info strong span,
+.refund-info > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 450;
+}
+.refund-amount {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+.empty-state {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 980px) {
+  .shift-information,
+  .sales-summary,
+  .payment-summary,
+  .top-items,
+  .recent-orders,
+  .refunds-panel {
+    grid-column: span 1;
+  }
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .shift-page {
+    padding-top: 10px;
+  }
+  .page-heading {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .heading-actions {
+    justify-content: flex-start;
+  }
+  h1 {
+    font-size: 23px;
+  }
+  .shift-status {
+    padding: 9px 12px;
+    font-size: 12px;
+  }
+  .summary-action {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 11px;
+  }
+  .shift-information,
+  .sales-summary,
+  .payment-summary,
+  .top-items,
+  .recent-orders,
+  .refunds-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+@media print {
+  .shift-page {
+    max-width: none;
+    padding: 0;
+    color: #111;
+  }
+  .heading-actions,
+  .demo-notice {
+    display: none !important;
+  }
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .panel {
+    break-inside: avoid;
+    border-color: #bbb;
+    box-shadow: none;
+  }
+  .shift-information,
+  .sales-summary,
+  .payment-summary,
+  .top-items,
+  .recent-orders,
+  .refunds-panel {
+    grid-column: span 1;
+  }
+}
