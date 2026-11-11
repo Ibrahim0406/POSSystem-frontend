@@ -8,6 +8,7 @@ import { Customer } from '../../core/models';
 import { toDate } from '../../core/loyalty';
 import { CustomerForm } from '../../shared/customer-form';
 import { HlmButton } from '@spartan-ng/helm/button/src';
+import { AuthService } from '../../core/auth.service';
 
 @Component({
   selector: 'app-customer-list',
@@ -18,11 +19,18 @@ import { HlmButton } from '@spartan-ng/helm/button/src';
 export class CustomerList {
   private api = inject(CustomerService);
   private router = inject(Router);
+  private auth = inject(AuthService);
 
   query = signal('');
   loading = signal(true);
   error = signal('');
   showForm = signal(false);
+  canCreateCustomer = computed(() => {
+    const role = this.auth.user()?.role.trim().toUpperCase().replace(/^ROLE_/, '');
+    return ['ADMIN', 'STORE_ADMIN', 'MANAGER', 'STORE_MANAGER', 'BRANCH_MANAGER'].includes(
+      role ?? '',
+    );
+  });
   /** true kad je neki kupac otvoren (aktivan child route) -> dvije kolone */
   hasDetail = signal(false);
 
@@ -53,6 +61,10 @@ export class CustomerList {
   );
 
   date = toDate;
+
+  openCreateForm() {
+    if (this.canCreateCustomer()) this.showForm.set(true);
+  }
 
   initials(name: string) {
     return name

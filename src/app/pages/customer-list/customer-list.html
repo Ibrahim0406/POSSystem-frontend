@@ -8,7 +8,9 @@
           {{ customers().length }} {{ customers().length === 1 ? 'kupac' : 'kupaca' }}
         </p>
       </div>
-      <button hlmBtn (click)="showForm.set(true)">+ Novi</button>
+      @if (canCreateCustomer()) {
+        <button hlmBtn (click)="openCreateForm()">+ Novi</button>
+      }
     </div>
 
     <input
@@ -54,6 +56,6 @@
   </section>
 </div>
 
-@if (showForm()) {
+@if (showForm() && canCreateCustomer()) {
   <app-customer-form (saved)="onSaved($event)" (closed)="showForm.set(false)" />
 }
