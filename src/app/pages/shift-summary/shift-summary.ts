@@ -32,6 +32,12 @@ export class ShiftSummary {
     () => this.report()?.cashier?.fullName ?? this.auth.user()?.fullName ?? '—',
   );
   readonly shiftStatus = computed(() => {
+    if (this.isBranchManager()) {
+      if (this.loading()) return 'Loading…';
+      const count = this.branchReports().length;
+      return `${count} active cashier shift${count === 1 ? '' : 's'}`;
+    }
+
     const report = this.report();
     if (!report) return this.loading() ? 'Loading…' : 'No report';
     return report.shiftEnd ? 'Shift completed' : 'Shift in progress';
@@ -59,12 +65,22 @@ export class ShiftSummary {
 
   readonly duration = computed(() => {
     const report = this.report();
-    const start = report ? this.timestamp(report.shiftStart) : 0;
-    const end = report?.shiftEnd ? this.timestamp(report.shiftEnd) : this.clock().getTime();
+    return report ? this.shiftDuration(report) : '—';
+  });
+
+  readonly isBranchManager = computed(
+    () => this.auth.user()?.role.trim().toUpperCase() === 'ROLE_BRANCH_MANAGER',
+  );
+
+  readonly branchReports = signal<ShiftReport[]>([]);
+
+  shiftDuration(report: ShiftReport) {
+    const start = this.timestamp(report.shiftStart);
+    const end = report.shiftEnd ? this.timestamp(report.shiftEnd) : this.clock().getTime();
     if (!start || !end) return '—';
     const minutes = Math.max(0, Math.floor((end - start) / 60000));
     return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-  });
+  }
 
   constructor() {
     interval(60_000)
@@ -76,6 +92,29 @@ export class ShiftSummary {
   load() {
     this.loading.set(true);
     this.error.set('');
+
+    if (this.isBranchManager()) {
+      this.api
+        .getCurrentBranchActive()
+        .pipe(finalize(() => this.loading.set(false)))
+        .subscribe({
+          next: (reports) => {
+            this.branchReports.set(
+              [...reports].sort(
+                (a, b) => this.timestamp(b.shiftStart) - this.timestamp(a.shiftStart),
+              ),
+            );
+          },
+          error: () => {
+            this.branchReports.set([]);
+            this.error.set(
+              'Unable to load active cashier shifts for this branch. Check that the backend endpoint is available and try again.',
+            );
+          },
+        });
+      return;
+    }
+
     const cashierId = this.auth.user()?.id;
     let historyRequestFailed = false;
     const latestReport = cashierId

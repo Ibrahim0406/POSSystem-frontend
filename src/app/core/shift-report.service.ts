@@ -21,4 +21,8 @@ export class ShiftReportService {
   getByCashier(cashierId: number) {
     return this.http.get<ShiftReport[]>(`/api/shift-reports/cashier/${cashierId}`);
   }
+
+  getCurrentBranchActive() {
+    return this.http.get<ShiftReport[]>('/api/shift-reports/branch/current/active');
+  }
 }
