@@ -6,7 +6,7 @@ import { Order } from './models';
 export class OrderService {
   private http = inject(HttpClient);
 
-  getByCashier(cashierId: number) {
-    return this.http.get<Order[]>(`/api/orders/cashier/${cashierId}`);
+  getByBranch(branchId: number) {
+    return this.http.get<Order[]>(`/api/orders/branch/${branchId}`);
   }
 }

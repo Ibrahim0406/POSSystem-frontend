@@ -5,7 +5,7 @@
       <h1>Order history</h1>
       <p class="subtitle">Review and find orders placed at your store.</p>
     </div>
-    <span class="order-count">{{ filteredOrders().length }} orders</span>
+    <span class="order-count payment-tag">{{ filteredOrders().length }} orders</span>
   </header>
 
   <section class="orders-panel" aria-label="Order history">
@@ -61,13 +61,12 @@
     @if (error()) {
       <div class="error-message" role="alert">
         <span>{{ error() }}</span>
-        <button type="button" (click)="load()">Try again</button>
+        <button hlmBtn type="button" variant="outline" (click)="load()">Try again</button>
       </div>
     } @else if (loading()) {
       <p class="empty-state" aria-live="polite">Loading orders…</p>
     } @else if (!filteredOrders().length) {
       <div class="empty-state">
-        <span class="empty-icon" aria-hidden="true">↗</span>
         <strong>No orders found</strong>
         <span>
           {{
@@ -87,6 +86,7 @@
               <th>Date &amp; time</th>
               <th>Payment</th>
               <th class="amount-cell">Total</th>
+              <th><span class="visually-hidden">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -106,6 +106,18 @@
                   </span>
                 </td>
                 <td class="amount-cell">{{ order.totalAmount | currency: 'EUR' }}</td>
+                <td class="action-cell">
+                  <button
+                    hlmBtn
+                    variant="outline"
+                    type="button"
+                    class="details-button"
+                    [attr.aria-label]="'View details for order #' + order.id"
+                    (click)="openDetails(order)"
+                  >
+                    Details
+                  </button>
+                </td>
               </tr>
             }
           </tbody>
@@ -114,3 +126,155 @@
     }
   </section>
 </section>
+
+@if (selectedOrder(); as order) {
+  <div class="order-modal-backdrop" (click)="closeDetails()">
+    <section
+      class="order-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="order-modal-title"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">ORDER #{{ order.id }}</p>
+          <h2 id="order-modal-title">Order details</h2>
+        </div>
+        <button
+          hlmBtn
+          variant="outline"
+          type="button"
+          class="close-button"
+          aria-label="Close order details"
+          (click)="closeDetails()"
+        >
+          &times;
+        </button>
+      </header>
+
+      <div class="details-grid">
+        <section class="detail-section">
+          <h3>Order information</h3>
+          <dl>
+            <div>
+              <dt>Date</dt>
+              <dd>{{ date(order.createdAt) | date: 'dd MMM yyyy, HH:mm' }}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{{ order.status || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Payment method</dt>
+              <dd>{{ paymentLabel(order.paymentType) }}</dd>
+            </div>
+            <div>
+              <dt>Total amount</dt>
+              <dd>
+                <strong>{{ order.totalAmount | currency: 'EUR' }}</strong>
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="detail-section">
+          <h3>Customer information</h3>
+          <dl>
+            <div>
+              <dt>Name</dt>
+              <dd>
+                {{
+                  order.customer?.fullName ||
+                    (order.customerId ? 'Customer #' + order.customerId : 'Walk-in customer')
+                }}
+              </dd>
+            </div>
+            <div>
+              <dt>Phone</dt>
+              <dd>{{ order.customer?.phone || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Email</dt>
+              <dd>{{ order.customer?.email || '—' }}</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+
+      <section class="detail-section items-section">
+        <h3>Order items</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th class="amount-cell">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of order.items; track item.id) {
+                <tr>
+                  <td>
+                    <div class="item-cell">
+                      @if (item.product?.imageUrl) {
+                        <img
+                          [src]="item.product?.imageUrl"
+                          [alt]="item.product?.name || 'Product image'"
+                        />
+                      } @else {
+                        <span class="item-placeholder" aria-hidden="true">▧</span>
+                      }
+                      <span>
+                        <strong>{{ item.product?.name || 'Product #' + item.productId }}</strong>
+                        @if (item.product?.sku) {
+                          <small>{{ item.product?.sku }}</small>
+                        }
+                      </span>
+                    </div>
+                  </td>
+                  <td>{{ item.quantity }}</td>
+                  <td>{{ unitPrice(item) | currency: 'EUR' }}</td>
+                  <td class="amount-cell">{{ item.price | currency: 'EUR' }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="4">No items in this order.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer class="modal-actions">
+        <button
+          hlmBtn
+          variant="destructive"
+          type="button"
+          class="secondary-button"
+          (click)="closeDetails()"
+        >
+          Initiate return
+        </button>
+        <div>
+          <button
+            hlmBtn
+            variant="outline"
+            type="button"
+            class="secondary-button"
+            (click)="printInvoice()"
+          >
+            Print invoice
+          </button>
+          <button hlmBtn type="button" class="primary-button" (click)="downloadPdf()">
+            Download PDF
+          </button>
+        </div>
+      </footer>
+    </section>
+  </div>
+}
