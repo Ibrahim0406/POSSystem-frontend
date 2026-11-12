@@ -24,6 +24,14 @@
             >
               Shift summary
             </a>
+            <a
+              hlmDropdownMenuItem
+              routerLink="/order-history"
+              routerLinkActive="current"
+              [routerLinkActiveOptions]="{ exact: true }"
+            >
+              Order history
+            </a>
             <a hlmDropdownMenuItem routerLink="/customers" routerLinkActive="current">Customers</a>
             <div hlmDropdownMenuSeparator></div>
             <button hlmDropdownMenuItem (click)="auth.logout()">Sign out</button>

@@ -1,0 +1,116 @@
+<section class="page">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">TRANSACTIONS</p>
+      <h1>Order history</h1>
+      <p class="subtitle">Review and find orders placed at your store.</p>
+    </div>
+    <span class="order-count">{{ filteredOrders().length }} orders</span>
+  </header>
+
+  <section class="orders-panel" aria-label="Order history">
+    <div class="toolbar">
+      <label class="search-field">
+        <span class="visually-hidden">Search by order ID or customer</span>
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input
+          type="search"
+          placeholder="Search by order ID or customer…"
+          [value]="query()"
+          (input)="query.set($any($event.target).value)"
+        />
+      </label>
+
+      <div class="date-filter">
+        <label for="date-filter">Date range</label>
+        <select
+          id="date-filter"
+          [value]="dateFilter()"
+          (change)="dateFilter.set($any($event.target).value)"
+        >
+          <option value="all">All time</option>
+          <option value="today">Today</option>
+          <option value="week">This week</option>
+          <option value="month">This month</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+    </div>
+
+    @if (dateFilter() === 'custom') {
+      <div class="custom-dates">
+        <label>
+          From
+          <input
+            type="date"
+            [value]="customStart()"
+            (input)="customStart.set($any($event.target).value)"
+          />
+        </label>
+        <label>
+          To
+          <input
+            type="date"
+            [value]="customEnd()"
+            (input)="customEnd.set($any($event.target).value)"
+          />
+        </label>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="error-message" role="alert">
+        <span>{{ error() }}</span>
+        <button type="button" (click)="load()">Try again</button>
+      </div>
+    } @else if (loading()) {
+      <p class="empty-state" aria-live="polite">Loading orders…</p>
+    } @else if (!filteredOrders().length) {
+      <div class="empty-state">
+        <span class="empty-icon" aria-hidden="true">↗</span>
+        <strong>No orders found</strong>
+        <span>
+          {{
+            query()
+              ? 'Try another order ID or customer name.'
+              : 'There are no orders in the selected date range.'
+          }}
+        </span>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Customer</th>
+              <th>Date &amp; time</th>
+              <th>Payment</th>
+              <th class="amount-cell">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (order of filteredOrders(); track order.id) {
+              <tr>
+                <td class="order-id">#{{ order.id }}</td>
+                <td>
+                  {{
+                    order.customer?.fullName ||
+                      (order.customerId ? 'Customer #' + order.customerId : 'Walk-in customer')
+                  }}
+                </td>
+                <td>{{ date(order.createdAt) | date: 'dd MMM yyyy, HH:mm' }}</td>
+                <td>
+                  <span class="payment-tag" [class.card]="order.paymentType === 'CARD'">
+                    {{ order.paymentType || '—' }}
+                  </span>
+                </td>
+                <td class="amount-cell">{{ order.totalAmount | currency: 'EUR' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</section>
