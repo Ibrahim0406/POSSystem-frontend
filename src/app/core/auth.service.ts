@@ -21,6 +21,13 @@ export class AuthService {
   readonly token = this._token.asReadonly();
   readonly user = this._user.asReadonly();
   readonly isLoggedIn = computed(() => !!this._token());
+  readonly canViewBranchOrders = computed(() => {
+    const role = this._user()
+      ?.role.trim()
+      .toUpperCase()
+      .replace(/^ROLE_/, '');
+    return role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER';
+  });
 
   login(email: string, password: string) {
     return this.http.post<AuthResponse>('/auth/signin', { email, password }).pipe(

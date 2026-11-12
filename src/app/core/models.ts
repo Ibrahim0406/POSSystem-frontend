@@ -14,15 +14,28 @@ export interface OrderItem {
   quantity: number;
   price: number;
   productId?: number;
-  product?: { id: number; name: string; sku?: string; brand?: string; sellingPrice?: number };
+  product?: {
+    id: number;
+    name: string;
+    sku?: string;
+    brand?: string;
+    sellingPrice?: number;
+    imageUrl?: string | null;
+  };
 }
 
 export interface Order {
   id: number;
   totalAmount: number;
   createdAt: string | number[];
+  status?: string | null;
   customerId?: number | null;
-  customer?: { id?: number; fullName?: string } | null;
+  customer?: {
+    id?: number;
+    fullName?: string;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
   paymentType?: PaymentType | null;
   branch?: { id: number; name?: string } | null;
   cashier?: { id: number; fullName?: string } | null;
@@ -68,5 +81,11 @@ export interface ShiftReport {
 export interface AuthResponse {
   jwt: string;
   message: string;
-  user: { id: number; fullName: string; email: string; role: string };
+  user: {
+    id: number;
+    fullName: string;
+    email: string;
+    role: string;
+    branchId?: number | null;
+  };
 }
