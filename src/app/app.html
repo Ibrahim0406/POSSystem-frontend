@@ -16,30 +16,43 @@
         <ng-template #navigationMenu>
           <div hlmDropdownMenu class="nav-dropdown">
             <span hlmDropdownMenuLabel>POS System</span>
-            <a
-              hlmDropdownMenuItem
-              routerLink="/shift-summary"
-              routerLinkActive="current"
-              [routerLinkActiveOptions]="{ exact: true }"
-            >
-              Shift summary
-            </a>
-            @if (canViewBranchOrders()) {
+            @if (isAdmin()) {
               <a
                 hlmDropdownMenuItem
-                routerLink="/order-history"
+                routerLink="/admin"
                 routerLinkActive="current"
                 [routerLinkActiveOptions]="{ exact: true }"
               >
-                Order history
+                Admin console
+              </a>
+            } @else {
+              <a
+                hlmDropdownMenuItem
+                routerLink="/shift-summary"
+                routerLinkActive="current"
+                [routerLinkActiveOptions]="{ exact: true }"
+              >
+                Shift summary
+              </a>
+              @if (canViewBranchOrders()) {
+                <a
+                  hlmDropdownMenuItem
+                  routerLink="/order-history"
+                  routerLinkActive="current"
+                  [routerLinkActiveOptions]="{ exact: true }"
+                >
+                  Order history
+                </a>
+              }
+              <a hlmDropdownMenuItem routerLink="/customers" routerLinkActive="current">
+                Customers
               </a>
             }
-            <a hlmDropdownMenuItem routerLink="/customers" routerLinkActive="current">Customers</a>
             <div hlmDropdownMenuSeparator></div>
             <button hlmDropdownMenuItem (click)="auth.logout()">Sign out</button>
           </div>
         </ng-template>
-        <a routerLink="/shift-summary" class="brand">POS System</a>
+        <a [routerLink]="isAdmin() ? '/admin' : '/shift-summary'" class="brand">POS System</a>
       </div>
       <div class="right">
         <span class="muted">{{ auth.user()?.fullName }}</span>

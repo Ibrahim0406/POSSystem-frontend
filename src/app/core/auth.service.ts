@@ -28,6 +28,13 @@ export class AuthService {
       .replace(/^ROLE_/, '');
     return role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER';
   });
+  readonly isAdmin = computed(() => {
+    const role = this._user()
+      ?.role.trim()
+      .toUpperCase()
+      .replace(/^ROLE_/, '');
+    return role === 'ADMIN';
+  });
 
   login(email: string, password: string) {
     return this.http.post<AuthResponse>('/auth/signin', { email, password }).pipe(

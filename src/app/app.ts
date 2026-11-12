@@ -27,5 +27,6 @@ import { HlmDropdownMenuTrigger } from '@spartan-ng/helm/dropdown-menu/src/lib/h
 export class App {
   auth = inject(AuthService);
   canViewBranchOrders = this.auth.canViewBranchOrders;
+  isAdmin = this.auth.isAdmin;
   protected readonly title = signal('POSSystem-frontend');
 }

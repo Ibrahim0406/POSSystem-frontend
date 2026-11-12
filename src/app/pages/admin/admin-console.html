@@ -1,0 +1,714 @@
+<div class="admin-page">
+  <header class="admin-heading">
+    <div>
+      <p class="eyebrow">SYSTEM ADMINISTRATION</p>
+      <h1>Admin console</h1>
+    </div>
+    <span class="admin-role">{{ currentRoleLabel() }}</span>
+  </header>
+
+  <nav class="section-nav" aria-label="Admin sections">
+    @for (item of sections; track item.id) {
+      <button
+        hlmBtn
+        variant="outline"
+        type="button"
+        [class.active]="section() === item.id"
+        (click)="selectSection(item.id)"
+      >
+        {{ item.label }}
+      </button>
+    }
+  </nav>
+
+  <main>
+    <div class="section-heading">
+      <div>
+        <h2>{{ sectionLabel() }}</h2>
+        @switch (section()) {
+          @case ('dashboard') {
+            <p>System-wide overview and operational counts.</p>
+          }
+          @case ('stores') {
+            <p>Review stores and manage their approval status.</p>
+          }
+          @case ('users') {
+            <p>Review accounts and manage access roles and status.</p>
+          }
+          @case ('support') {
+            <p>Review and update submitted support reports.</p>
+          }
+          @case ('audit') {
+            <p>Review recorded administrative changes.</p>
+          }
+          @case ('settings') {
+            <p>Manage system-wide configuration values.</p>
+          }
+        }
+      </div>
+      @if (loading()) {
+        <span class="loading-label" aria-live="polite">Loading…</span>
+      }
+    </div>
+
+    @if (error()) {
+      <div class="alert error" role="alert">{{ error() }}</div>
+    }
+    @if (actionError()) {
+      <div class="alert error" role="alert">{{ actionError() }}</div>
+    }
+    @if (notice()) {
+      <div class="alert success" role="status">{{ notice() }}</div>
+    }
+
+    @switch (section()) {
+      @case ('dashboard') {
+        @if (dashboard(); as data) {
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>Total stores</span>
+              <strong>{{ data.stores }}</strong>
+            </article>
+            <article class="metric-card">
+              <span>Total users</span>
+              <strong>{{ data.users }}</strong>
+            </article>
+            <article class="metric-card">
+              <span>Open support reports</span>
+              <strong>{{ data.openSupportReports }}</strong>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel">
+              <h3>Stores by status</h3>
+              @for (entry of entries(data.storesByStatus); track entry.label) {
+                <div class="stat-row">
+                  <span>{{ label(entry.label) }}</span>
+                  <strong>{{ entry.count }}</strong>
+                </div>
+              } @empty {
+                <p class="muted">No store status data available.</p>
+              }
+            </section>
+            <section class="panel">
+              <h3>Users by role</h3>
+              @for (entry of entries(data.usersByRole); track entry.label) {
+                <div class="stat-row">
+                  <span>{{ label(entry.label) }}</span>
+                  <strong>{{ entry.count }}</strong>
+                </div>
+              } @empty {
+                <p class="muted">No user role data available.</p>
+              }
+            </section>
+          </div>
+        }
+      }
+
+      @case ('stores') {
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h3>Stores and branches</h3>
+              <span>Create new stores or branches.</span>
+            </div>
+            <div class="actions-cell">
+              <button hlmBtn variant="outline" type="button" (click)="toggleStoreForm()">
+                {{ showStoreForm() ? 'Cancel' : 'Add store' }}
+              </button>
+              <button hlmBtn type="button" (click)="toggleBranchForm()">
+                {{ showBranchForm() ? 'Cancel' : 'Add branch' }}
+              </button>
+            </div>
+          </div>
+
+          @if (showStoreForm()) {
+            <form class="creation-form" (submit)="createStore($event)">
+              <h3>New store</h3>
+              <p class="muted">The backend assigns the currently signed-in user as store admin.</p>
+              <div class="form-grid">
+                <label>
+                  <span>Store name</span>
+                  <input
+                    required
+                    type="text"
+                    [value]="storeDraft().brand"
+                    (input)="updateStoreDraft('brand', $any($event.target).value)"
+                  />
+                </label>
+                <label>
+                  <span>Store type</span>
+                  <input
+                    type="text"
+                    [value]="storeDraft().storeType"
+                    (input)="updateStoreDraft('storeType', $any($event.target).value)"
+                  />
+                </label>
+                <label>
+                  <span>Contact email</span>
+                  <input
+                    type="email"
+                    [value]="storeDraft().contact.email"
+                    (input)="updateStoreContact('email', $any($event.target).value)"
+                  />
+                </label>
+                <label>
+                  <span>Phone</span>
+                  <input
+                    type="tel"
+                    [value]="storeDraft().contact.phone"
+                    (input)="updateStoreContact('phone', $any($event.target).value)"
+                  />
+                </label>
+                <label class="form-span">
+                  <span>Address</span>
+                  <input
+                    type="text"
+                    [value]="storeDraft().contact.address"
+                    (input)="updateStoreContact('address', $any($event.target).value)"
+                  />
+                </label>
+                <label class="form-span">
+                  <span>Description</span>
+                  <textarea
+                    rows="3"
+                    [value]="storeDraft().description"
+                    (input)="updateStoreDraft('description', $any($event.target).value)"
+                  ></textarea>
+                </label>
+              </div>
+              <button hlmBtn type="submit" [disabled]="actionBusy() === 'create-store'">
+                Create store
+              </button>
+            </form>
+          }
+
+          @if (showBranchForm()) {
+            <div class="creation-form">
+              <h3>New branch</h3>
+              <p class="muted">
+                The current backend creates branches under the store assigned to the signed-in
+                admin. Other stores are not available in this form.
+              </p>
+              @if (branchStores().length === 0) {
+                <p class="empty-state">
+                  No store is assigned to this admin. Create a store first, or update the backend
+                  branch endpoint to let admins select any store.
+                </p>
+              } @else {
+                <label class="form-field">
+                  <span>Store</span>
+                  <select
+                    [value]="branchStoreId()"
+                    (change)="setBranchStore($any($event.target).value)"
+                  >
+                    @for (store of branchStores(); track store.id) {
+                      <option [value]="store.id">{{ store.name }}</option>
+                    }
+                  </select>
+                </label>
+                <form (submit)="createBranch($event)">
+                  <div class="form-grid">
+                    <label>
+                      <span>Branch name</span>
+                      <input
+                        required
+                        type="text"
+                        [value]="branchDraft().name"
+                        (input)="updateBranchDraft('name', $any($event.target).value)"
+                      />
+                    </label>
+                    <label>
+                      <span>Email</span>
+                      <input
+                        type="email"
+                        [value]="branchDraft().email"
+                        (input)="updateBranchDraft('email', $any($event.target).value)"
+                      />
+                    </label>
+                    <label>
+                      <span>Phone</span>
+                      <input
+                        type="tel"
+                        [value]="branchDraft().phoneNumber"
+                        (input)="updateBranchDraft('phoneNumber', $any($event.target).value)"
+                      />
+                    </label>
+                    <label>
+                      <span>Address</span>
+                      <input
+                        type="text"
+                        [value]="branchDraft().address"
+                        (input)="updateBranchDraft('address', $any($event.target).value)"
+                      />
+                    </label>
+                    <label>
+                      <span>Opening time</span>
+                      <input
+                        type="time"
+                        [value]="branchDraft().openTime"
+                        (input)="updateBranchDraft('openTime', $any($event.target).value)"
+                      />
+                    </label>
+                    <label>
+                      <span>Closing time</span>
+                      <input
+                        type="time"
+                        [value]="branchDraft().closeTime"
+                        (input)="updateBranchDraft('closeTime', $any($event.target).value)"
+                      />
+                    </label>
+                    <fieldset class="form-span working-days">
+                      <legend>Working days</legend>
+                      @for (day of workingDays; track day) {
+                        <label>
+                          <input
+                            type="checkbox"
+                            [checked]="branchDraft().workingDays.includes(day)"
+                            (change)="toggleWorkingDay(day, $any($event.target).checked)"
+                          />
+                          {{ label(day) }}
+                        </label>
+                      }
+                    </fieldset>
+                  </div>
+                  <button hlmBtn type="submit" [disabled]="actionBusy() === 'create-branch'">
+                    Create branch
+                  </button>
+                </form>
+              }
+            </div>
+          }
+
+          <div class="filters">
+            <label>
+              <span>Search stores</span>
+              <input
+                type="search"
+                placeholder="Store name…"
+                [value]="storeQuery()"
+                (input)="storeQuery.set($any($event.target).value)"
+                (keydown.enter)="loadStores()"
+              />
+            </label>
+            <label>
+              <span>Status</span>
+              <select [value]="storeStatus()" (change)="setStoreStatus($any($event.target).value)">
+                <option value="">All statuses</option>
+                @for (status of storeStatuses; track status) {
+                  <option [value]="status">{{ label(status) }}</option>
+                }
+              </select>
+            </label>
+            <button hlmBtn type="button" (click)="loadStores()">Search</button>
+          </div>
+
+          @if (!loading() && stores().length === 0) {
+            <p class="empty-state">No stores match these filters.</p>
+          } @else {
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Store</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Store admin</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (store of stores(); track store.id) {
+                    <tr>
+                      <td>
+                        <strong>{{ store.name }}</strong>
+                      </td>
+                      <td>
+                        <span class="status" [class]="statusClass(store.status)">{{
+                          label(store.status)
+                        }}</span>
+                      </td>
+                      <td>{{ store.createdAt | date: 'dd MMM yyyy' }}</td>
+                      <td>{{ store.storeAdminEmail || '—' }}</td>
+                      <td class="actions-cell">
+                        <button hlmBtn variant="outline" type="button" (click)="openStore(store)">
+                          Details
+                        </button>
+                        @if (store.status === 'PENDING') {
+                          <button
+                            hlmBtn
+                            type="button"
+                            [disabled]="actionBusy() === 'store:' + store.id"
+                            (click)="updateStoreStatus(store, 'ACTIVE')"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            hlmBtn
+                            variant="destructive"
+                            type="button"
+                            [disabled]="actionBusy() === 'store:' + store.id"
+                            (click)="updateStoreStatus(store, 'BLOCKED')"
+                          >
+                            Reject
+                          </button>
+                        } @else if (store.status === 'ACTIVE') {
+                          <button
+                            hlmBtn
+                            variant="destructive"
+                            type="button"
+                            [disabled]="actionBusy() === 'store:' + store.id"
+                            (click)="updateStoreStatus(store, 'BLOCKED')"
+                          >
+                            Block
+                          </button>
+                        } @else {
+                          <button
+                            hlmBtn
+                            variant="outline"
+                            type="button"
+                            [disabled]="actionBusy() === 'store:' + store.id"
+                            (click)="updateStoreStatus(store, 'ACTIVE')"
+                          >
+                            Activate
+                          </button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @if (branchStoreId() !== null && branchStores().length > 0) {
+            <section class="branch-list">
+              <h3>Branches for {{ branchStoreLabel() }}</h3>
+              @if (branchesLoading()) {
+                <p class="muted">Loading branches…</p>
+              } @else if (branchesError()) {
+                <p class="error-text" role="alert">{{ branchesError() }}</p>
+              } @else if (branches().length === 0) {
+                <p class="muted">No branches found for this store.</p>
+              } @else {
+                @for (branch of branches(); track branch.id) {
+                  <div class="branch-row">
+                    <strong>{{ branch.name }}</strong>
+                    <span>{{ branch.address || '—' }}</span>
+                    <span>{{ branch.phoneNumber || branch.email || '—' }}</span>
+                    <span>{{ branch.openTime }}–{{ branch.closeTime }}</span>
+                  </div>
+                }
+              }
+            </section>
+          }
+        </section>
+
+        @if (selectedStore(); as store) {
+          <section class="panel store-detail">
+            <div class="panel-heading">
+              <div>
+                <h3>{{ store.name }}</h3>
+                <span>Store #{{ store.id }}</span>
+              </div>
+              <span class="status" [class]="statusClass(store.status)">{{
+                label(store.status)
+              }}</span>
+            </div>
+            @if (storeDetailLoading()) {
+              <p class="muted">Loading store details…</p>
+            } @else if (storeDetailError()) {
+              <p class="error-text" role="alert">{{ storeDetailError() }}</p>
+            } @else {
+              <dl class="detail-list">
+                <div>
+                  <dt>Address</dt>
+                  <dd>{{ store.contact?.address || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Phone</dt>
+                  <dd>{{ store.contact?.phone || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Email</dt>
+                  <dd>{{ store.contact?.email || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Store admin</dt>
+                  <dd>{{ store.storeAdminEmail || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Created</dt>
+                  <dd>{{ store.createdAt | date: 'dd MMM yyyy, HH:mm' }}</dd>
+                </div>
+                <div>
+                  <dt>Updated</dt>
+                  <dd>
+                    {{ store.updatedAt ? (store.updatedAt | date: 'dd MMM yyyy, HH:mm') : '—' }}
+                  </dd>
+                </div>
+              </dl>
+            }
+          </section>
+        }
+      }
+
+      @case ('users') {
+        <section class="panel">
+          <div class="filters">
+            <label>
+              <span>Search users</span>
+              <input
+                type="search"
+                placeholder="Name or email…"
+                [value]="userQuery()"
+                (input)="userQuery.set($any($event.target).value)"
+                (keydown.enter)="loadUsers()"
+              />
+            </label>
+            <label>
+              <span>Role</span>
+              <select [value]="userRole()" (change)="setUserRoleFilter($any($event.target).value)">
+                <option value="">All roles</option>
+                @for (role of userRoles; track role) {
+                  <option [value]="role">{{ label(role) }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              <span>Account status</span>
+              <select
+                [value]="userStatus()"
+                (change)="setUserStatusFilter($any($event.target).value)"
+              >
+                <option value="">All statuses</option>
+                @for (status of accountStatuses; track status) {
+                  <option [value]="status">{{ label(status) }}</option>
+                }
+              </select>
+            </label>
+            <button hlmBtn type="button" (click)="loadUsers()">Search</button>
+          </div>
+
+          @if (!loading() && users().length === 0) {
+            <p class="empty-state">No users match these filters.</p>
+          } @else {
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Store / branch</th>
+                    <th>Last login</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (user of users(); track user.id) {
+                    <tr>
+                      <td>
+                        <strong>{{ user.fullName }}</strong
+                        ><small>{{ user.email }}</small>
+                      </td>
+                      <td>
+                        <select
+                          [attr.aria-label]="'Change role for ' + user.email"
+                          [disabled]="isSelf(user)"
+                          (change)="setUserRoleDraft(user.id, $any($event.target).value)"
+                        >
+                          @for (role of userRoles; track role) {
+                            <option
+                              [value]="role"
+                              [selected]="role === (userRoleDrafts()[user.id] || user.role)"
+                            >
+                              {{ label(role) }}
+                            </option>
+                          }
+                        </select>
+                      </td>
+                      <td>
+                        <span class="status" [class]="statusClass(user.status)">{{
+                          label(user.status)
+                        }}</span>
+                      </td>
+                      <td>
+                        {{ user.storeId ? '#' + user.storeId : '—' }} /
+                        {{ user.branchId ? '#' + user.branchId : '—' }}
+                      </td>
+                      <td>
+                        {{ user.lastLogin ? (user.lastLogin | date: 'dd MMM yyyy, HH:mm') : '—' }}
+                      </td>
+                      <td class="actions-cell">
+                        @if (
+                          !isSelf(user) && (userRoleDrafts()[user.id] || user.role) !== user.role
+                        ) {
+                          <button
+                            hlmBtn
+                            variant="outline"
+                            type="button"
+                            [disabled]="actionBusy() === 'role:' + user.id"
+                            (click)="updateUserRole(user)"
+                          >
+                            Save role
+                          </button>
+                        }
+                        @if (!isSelf(user)) {
+                          <button
+                            hlmBtn
+                            [variant]="user.status === 'ACTIVE' ? 'destructive' : 'outline'"
+                            type="button"
+                            [disabled]="actionBusy() === 'user:' + user.id"
+                            (click)="updateUserStatus(user)"
+                          >
+                            {{ user.status === 'ACTIVE' ? 'Deactivate' : 'Activate' }}
+                          </button>
+                        } @else {
+                          <span class="muted">Current admin</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
+
+      @case ('support') {
+        <section class="panel">
+          <div class="filters compact-filters">
+            <label>
+              <span>Report status</span>
+              <select
+                [value]="supportStatus()"
+                (change)="setSupportStatus($any($event.target).value)"
+              >
+                <option value="">All statuses</option>
+                @for (status of supportStatuses; track status) {
+                  <option [value]="status">{{ label(status) }}</option>
+                }
+              </select>
+            </label>
+            <button hlmBtn type="button" (click)="loadSupportReports()">Filter</button>
+          </div>
+          @if (!loading() && supportReports().length === 0) {
+            <p class="empty-state">No support reports found.</p>
+          } @else {
+            <div class="report-list">
+              @for (report of supportReports(); track report.id) {
+                <article class="report-card">
+                  <div class="panel-heading">
+                    <div>
+                      <h3>{{ report.title }}</h3>
+                      <span>
+                        Report #{{ report.id }} ·
+                        {{ report.submittedByEmail || 'Unknown reporter' }} ·
+                        {{ report.createdAt | date: 'dd MMM yyyy, HH:mm' }}
+                      </span>
+                    </div>
+                    <span class="status" [class]="statusClass(report.status)">{{
+                      label(report.status)
+                    }}</span>
+                  </div>
+                  <p class="report-description">{{ report.description }}</p>
+                  <label class="inline-select">
+                    <span>Update status</span>
+                    <select
+                      [value]="report.status"
+                      [disabled]="actionBusy() === 'support:' + report.id"
+                      (change)="setSupportReportStatus(report, $any($event.target).value)"
+                    >
+                      @for (status of supportStatuses; track status) {
+                        <option [value]="status">{{ label(status) }}</option>
+                      }
+                    </select>
+                  </label>
+                </article>
+              }
+            </div>
+          }
+        </section>
+      }
+
+      @case ('audit') {
+        <section class="panel">
+          @if (!loading() && auditLogs().length === 0) {
+            <p class="empty-state">No administrative changes have been recorded.</p>
+          } @else {
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Resource</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (log of auditLogs(); track log.id) {
+                    <tr>
+                      <td>{{ log.createdAt | date: 'dd MMM yyyy, HH:mm' }}</td>
+                      <td>
+                        {{ log.actorEmail }} <small>#{{ log.actorId }}</small>
+                      </td>
+                      <td>{{ label(log.action) }}</td>
+                      <td>{{ label(log.resourceType) }} {{ log.resourceId || '' }}</td>
+                      <td class="details-cell">{{ log.details || '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
+
+      @case ('settings') {
+        <section class="panel">
+          @if (!loading() && settings().length === 0) {
+            <p class="empty-state">No system settings were returned.</p>
+          } @else {
+            <div class="settings-list">
+              @for (setting of settings(); track setting.key) {
+                <div class="setting-row">
+                  <div>
+                    <strong>{{ setting.key }}</strong>
+                    <small
+                      >Last updated
+                      {{
+                        setting.updatedAt ? (setting.updatedAt | date: 'dd MMM yyyy, HH:mm') : '—'
+                      }}</small
+                    >
+                  </div>
+                  <input
+                    type="text"
+                    [value]="settingValue(setting)"
+                    (input)="setSettingDraft(setting.key, $any($event.target).value)"
+                    [attr.aria-label]="'Value for ' + setting.key"
+                  />
+                  <button
+                    hlmBtn
+                    variant="outline"
+                    type="button"
+                    [disabled]="
+                      !settingChanged(setting) || actionBusy() === 'setting:' + setting.key
+                    "
+                    (click)="updateSetting(setting)"
+                  >
+                    Save
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        </section>
+      }
+    }
+  </main>
+</div>
