@@ -1,0 +1,327 @@
+<section class="page">
+  @if (selectedOrder(); as order) {
+    <button hlmBtn variant="outline" type="button" class="back-button" (click)="backToSearch()">
+      <span aria-hidden="true">←</span> Back to order search
+    </button>
+
+    <header class="page-heading">
+      <div>
+        <p class="eyebrow">RETURNS</p>
+        <h1>Return order #{{ order.id }}</h1>
+      </div>
+    </header>
+
+    <div class="return-layout">
+      <div class="left-column">
+        <section class="card order-summary">
+          <div class="card-heading">
+            <div>
+              <p class="eyebrow">ORDER #{{ order.id }}</p>
+              <h2>Order details</h2>
+            </div>
+            <span class="payment-tag">{{ paymentLabel(order.paymentType) }}</span>
+          </div>
+          <dl class="summary-list">
+            <div>
+              <dt>Date &amp; time</dt>
+              <dd>{{ date(order.createdAt) | date: 'dd MMM yyyy, HH:mm' }}</dd>
+            </div>
+            <div>
+              <dt>Customer</dt>
+              <dd>{{ customerName(order) }}</dd>
+            </div>
+            <div>
+              <dt>Phone</dt>
+              <dd>{{ order.customer?.phone || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Email</dt>
+              <dd>{{ order.customer?.email || '—' }}</dd>
+            </div>
+            <div class="summary-total">
+              <dt>Order total</dt>
+              <dd>{{ order.totalAmount | currency: 'EUR' }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="card order-items">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">PURCHASE</p>
+              <h2>Order items</h2>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th class="amount-cell">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of order.items; track item.id) {
+                  <tr>
+                    <td>{{ item.product?.name || 'Product #' + item.productId }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ unitPrice(item) | currency: 'EUR' }}</td>
+                    <td class="amount-cell">{{ item.price | currency: 'EUR' }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="4" class="empty-row">No items in this order.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="right-column">
+        <section class="card return-items">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">SELECT PRODUCTS</p>
+              <h2>Return items</h2>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Ordered</th>
+                  <th>Return qty</th>
+                  <th>Refund</th>
+                  <th>Return?</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of order.items; track item.id) {
+                  <tr [class.unavailable]="remainingQuantity(order, item) === 0">
+                    <td class="product-name">{{ item.product?.name || 'Product #' + item.productId }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>
+                      <input
+                        class="quantity-input"
+                        type="number"
+                        min="0"
+                        [max]="remainingQuantity(order, item)"
+                        [value]="returnQuantity(item)"
+                        [disabled]="!returnItemIds().includes(item.id)"
+                        [attr.aria-label]="'Return quantity for ' + (item.product?.name || 'item')"
+                        (input)="setReturnQuantity(item, $event)"
+                      />
+                    </td>
+                    <td>
+                      {{
+                        unitPrice(item) * returnQuantity(item) | currency: 'EUR'
+                      }}
+                    </td>
+                    <td>
+                      <button
+                        hlmBtn
+                        [variant]="returnItemIds().includes(item.id) ? 'default' : 'outline'"
+                        type="button"
+                        [disabled]="remainingQuantity(order, item) === 0"
+                        [attr.aria-pressed]="returnItemIds().includes(item.id)"
+                        (click)="toggleItem(item)"
+                      >
+                        {{ remainingQuantity(order, item) === 0 ? 'Returned' : 'Return' }}
+                      </button>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="5" class="empty-row">No items in this order.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="refund-total">
+            <span>Refund amount</span>
+            <strong>{{ refundAmount() | currency: 'EUR' }}</strong>
+          </div>
+        </section>
+
+        <section class="card refund-options">
+          <label class="form-field">
+            <span>Return reason</span>
+            <textarea
+              rows="3"
+              placeholder="Enter the reason for this return"
+              [value]="returnReason()"
+              (input)="returnReason.set($any($event.target).value)"
+            ></textarea>
+          </label>
+          <label class="form-field">
+            <span>Refund method</span>
+            <select
+              [value]="refundMethod()"
+              (change)="refundMethod.set($any($event.target).value)"
+            >
+              <option value="CASH">Cash</option>
+              <option value="CARD">Card</option>
+              <option value="UPI">UPI</option>
+            </select>
+          </label>
+          <button
+            hlmBtn
+            type="button"
+            class="process-button"
+            [disabled]="!selectedItems().length || !returnReason().trim()"
+            (click)="showConfirmation()"
+          >
+            Process refund
+          </button>
+        </section>
+      </div>
+    </div>
+  } @else {
+    <header class="page-heading">
+      <div>
+        <p class="eyebrow">TRANSACTIONS</p>
+        <h1>Refunds</h1>
+        <p class="subtitle">Find an order to start a return.</p>
+      </div>
+      <span class="payment-tag">{{ filteredOrders().length }} orders</span>
+    </header>
+
+    @if (successMessage()) {
+      <div class="success-message" role="status">
+        <span>{{ successMessage() }}</span>
+        <button type="button" aria-label="Dismiss message" (click)="successMessage.set('')">
+          &times;
+        </button>
+      </div>
+    }
+
+    <section class="card order-search" aria-label="Order search">
+      <label class="search-field">
+        <span class="visually-hidden">Search by order ID or customer</span>
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input
+          type="search"
+          placeholder="Search by order ID or customer…"
+          [value]="query()"
+          (input)="query.set($any($event.target).value)"
+        />
+      </label>
+
+      @if (error()) {
+        <div class="error-message" role="alert">
+          <span>{{ error() }}</span>
+          <button hlmBtn variant="outline" type="button" (click)="load()">Try again</button>
+        </div>
+      } @else if (loading()) {
+        <p class="empty-state" aria-live="polite">Loading orders…</p>
+      } @else if (!filteredOrders().length) {
+        <div class="empty-state">
+          <strong>No orders found</strong>
+          <span>
+            {{
+              query()
+                ? 'Try another order ID or customer name.'
+                : 'There are no orders available for return.'
+            }}
+          </span>
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Date &amp; time</th>
+                <th>Customer</th>
+                <th class="amount-cell">Amount</th>
+                <th>Payment type</th>
+                <th><span class="visually-hidden">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (order of filteredOrders(); track order.id) {
+                <tr>
+                  <td class="order-id">#{{ order.id }}</td>
+                  <td>{{ date(order.createdAt) | date: 'dd MMM yyyy, HH:mm' }}</td>
+                  <td>{{ customerName(order) }}</td>
+                  <td class="amount-cell">{{ order.totalAmount | currency: 'EUR' }}</td>
+                  <td><span class="payment-tag">{{ paymentLabel(order.paymentType) }}</span></td>
+                  <td class="action-cell">
+                    <button
+                      hlmBtn
+                      variant="outline"
+                      type="button"
+                      (click)="openOrder(order)"
+                    >
+                      Select for Return
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+</section>
+
+@if (confirming()) {
+  @if (selectedOrder(); as order) {
+    <div class="confirmation-backdrop">
+      <section
+        class="confirmation-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
+      >
+        <p class="eyebrow">PLEASE REVIEW</p>
+        <h2 id="confirm-title">Confirm refund</h2>
+        <p class="confirmation-intro">Review the refund amount and details before confirming.</p>
+
+        <div class="confirmation-amount">
+          <span>Refund amount</span>
+          <strong>{{ refundAmount() | currency: 'EUR' }}</strong>
+        </div>
+
+        <dl class="confirmation-details">
+          <div>
+            <dt>Order</dt>
+            <dd>#{{ order.id }}</dd>
+          </div>
+          <div>
+            <dt>Customer</dt>
+            <dd>{{ customerName(order) }}</dd>
+          </div>
+          <div>
+            <dt>Refund method</dt>
+            <dd>{{ paymentLabel(refundMethod()) }}</dd>
+          </div>
+          <div>
+            <dt>Return reason</dt>
+            <dd>{{ returnReason() }}</dd>
+          </div>
+        </dl>
+        <ul class="confirmation-items">
+          @for (selection of selectedItems(); track selection.item.id) {
+            <li>
+              <span>{{ selection.item.product?.name || 'Product #' + selection.item.productId }} × {{ selection.quantity }}</span>
+              <strong>{{ selection.amount | currency: 'EUR' }}</strong>
+            </li>
+          }
+        </ul>
+
+        <div class="confirmation-actions">
+          <button hlmBtn variant="outline" type="button" (click)="cancelConfirmation()">
+            Cancel
+          </button>
+          <button hlmBtn type="button" class="confirm-button" (click)="confirmRefund()">
+            Confirm refund
+          </button>
+        </div>
+      </section>
+    </div>
+  }
+}

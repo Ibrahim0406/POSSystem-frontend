@@ -43,6 +43,11 @@
                 >
                   Order history
                 </a>
+                @if (canRefund()) {
+                  <a hlmDropdownMenuItem routerLink="/refund" routerLinkActive="current">
+                    Refund
+                  </a>
+                }
               }
               <a hlmDropdownMenuItem routerLink="/customers" routerLinkActive="current">
                 Customers
