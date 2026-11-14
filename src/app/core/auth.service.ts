@@ -28,6 +28,11 @@ export class AuthService {
       .replace(/^ROLE_/, '');
     return role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER';
   });
+  readonly canRefund = computed(() => {
+    const user = this._user();
+    const role = user?.role.trim().toUpperCase().replace(/^ROLE_/, '');
+    return role === 'BRANCH_CASHIER' && user?.branchId != null;
+  });
   readonly isAdmin = computed(() => {
     const role = this._user()
       ?.role.trim()

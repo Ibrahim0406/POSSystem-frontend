@@ -12,6 +12,11 @@ export const branchOrdersGuard: CanActivateFn = () => {
   return auth.canViewBranchOrders() ? true : inject(Router).createUrlTree(['/shift-summary']);
 };
 
+export const branchCashierGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  return auth.canRefund() ? true : inject(Router).createUrlTree(['/shift-summary']);
+};
+
 export const adminGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   return auth.isAdmin() ? true : inject(Router).createUrlTree(['/shift-summary']);

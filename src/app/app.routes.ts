@@ -1,5 +1,11 @@
 import { Routes } from '@angular/router';
-import { adminGuard, authGuard, branchOperationsGuard, branchOrdersGuard } from './core/auth.guard';
+import {
+  adminGuard,
+  authGuard,
+  branchCashierGuard,
+  branchOperationsGuard,
+  branchOrdersGuard,
+} from './core/auth.guard';
 import { Login } from './pages/login/login';
 import { CustomerList } from './pages/customer-list/customer-list';
 import { CustomerDetail } from './pages/customer-detail/customer-detail';
@@ -17,6 +23,11 @@ export const routes: Routes = [
     path: 'order-history',
     component: OrderHistory,
     canActivate: [authGuard, branchOrdersGuard],
+  },
+  {
+    path: 'refund',
+    loadComponent: () => import('./pages/refund/refund').then((m) => m.Refund),
+    canActivate: [authGuard, branchCashierGuard],
   },
   {
     path: 'admin',
