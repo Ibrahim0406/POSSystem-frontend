@@ -35,6 +35,16 @@
                 Shift summary
               </a>
               @if (canViewBranchOrders()) {
+                @if (canRefund()) {
+                  <a
+                    hlmDropdownMenuItem
+                    routerLink="/cashier"
+                    routerLinkActive="current"
+                    [routerLinkActiveOptions]="{ exact: true }"
+                  >
+                    Create order
+                  </a>
+                }
                 <a
                   hlmDropdownMenuItem
                   routerLink="/order-history"
@@ -57,7 +67,10 @@
             <button hlmDropdownMenuItem (click)="auth.logout()">Sign out</button>
           </div>
         </ng-template>
-        <a [routerLink]="isAdmin() ? '/admin' : '/shift-summary'" class="brand">POS System</a>
+        <a
+          [routerLink]="isAdmin() ? '/admin' : canRefund() ? '/cashier' : '/shift-summary'"
+          class="brand"
+        >POS System</a>
       </div>
       <div class="right">
         <span class="muted">{{ auth.user()?.fullName }}</span>

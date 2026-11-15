@@ -31,10 +31,10 @@ export class CustomerList {
       role ?? '',
     );
   });
-  /** true kad je neki kupac otvoren (aktivan child route) -> dvije kolone */
+  /** True when a customer is open in the child route, showing the two-column layout. */
   hasDetail = signal(false);
 
-  // query + signal iz servisa koji se poveca nakon create/update/delete
+  // Reload customers when the query changes or the service reports a customer mutation.
   private trigger = computed(() => ({ q: this.query().trim(), r: this.api.changed() }));
 
   customers = toSignal(
@@ -49,7 +49,7 @@ export class CustomerList {
         (q ? this.api.search(q) : this.api.getAll()).pipe(
           catchError(() => {
             this.error.set(
-              'Ne mogu učitati kupce. Provjerite da backend radi i da ste prijavljeni.',
+              'Unable to load customers. Check that the backend is running and try again.',
             );
             return of([] as Customer[]);
           }),

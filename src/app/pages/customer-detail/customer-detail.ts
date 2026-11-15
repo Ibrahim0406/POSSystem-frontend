@@ -19,7 +19,7 @@ export class CustomerDetail {
   private api = inject(CustomerService);
   private router = inject(Router);
 
-  /** Dolazi iz rute /customers/:id (withComponentInputBinding) */
+  /** Provided by /customers/:id through withComponentInputBinding. */
   id = input.required({ transform: numberAttribute });
 
   customer = signal<Customer | null>(null);
@@ -43,7 +43,7 @@ export class CustomerDetail {
   avgOrder = computed(() => (this.totalOrders() ? this.totalSpent() / this.totalOrders() : 0));
 
   constructor() {
-    // Komponenta se ponovo koristi kad kliknes drugog kupca, pa pratimo promjenu :id
+    // The component is reused across customer routes, so reload whenever :id changes.
     toObservable(this.id)
       .pipe(
         tap(() => {
@@ -66,7 +66,7 @@ export class CustomerDetail {
         } else {
           this.customer.set(null);
           this.orders.set([]);
-          this.error.set('Kupac nije pronađen ili se podaci ne mogu učitati.');
+          this.error.set('Customer not found or customer data could not be loaded.');
         }
         this.loading.set(false);
       });
@@ -85,10 +85,11 @@ export class CustomerDetail {
 
   remove() {
     const c = this.customer();
-    if (!c?.id || !confirm(`Obrisati kupca "${c.fullName}"?`)) return;
+    if (!c?.id || !confirm(`Delete customer "${c.fullName}"?`)) return;
     this.api.delete(c.id).subscribe({
       next: () => this.router.navigate(['/customers']),
-      error: () => this.error.set('Brisanje nije uspjelo (kupac možda ima povezane narudžbe).'),
+      error: () =>
+        this.error.set('Could not delete the customer. They may have linked orders.'),
     });
   }
 }

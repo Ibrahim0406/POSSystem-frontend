@@ -1,7 +1,7 @@
-<a routerLink="/customers" class="back">← Svi kupci</a>
+<a routerLink="/customers" class="back">← All customers</a>
 
 @if (loading()) {
-  <p class="muted center">Učitavanje…</p>
+  <p class="muted center">Loading customer details...</p>
 } @else if (error() && !customer()) {
   <div class="alert">{{ error() }}</div>
 } @else if (customer(); as c) {
@@ -13,13 +13,13 @@
         <span>✉ {{ c.email || '—' }}</span>
         <span>☎ {{ c.phone || '—' }}</span>
         @if (c.createdAt) {
-          <span>Kupac od {{ date(c.createdAt) | date: 'dd.MM.yyyy' }}</span>
+          <span>Customer since {{ date(c.createdAt) | date: 'MMM d, y' }}</span>
         }
       </div>
     </div>
     <div class="btns">
-      <button hlmBtn variant="outline" (click)="editing.set(true)">Uredi</button>
-      <button hlmBtn variant="destructive" (click)="remove()">Obriši</button>
+      <button hlmBtn variant="outline" (click)="editing.set(true)">Edit</button>
+      <button hlmBtn variant="destructive" (click)="remove()">Delete</button>
     </div>
   </section>
 
@@ -29,38 +29,40 @@
 
   <section class="stats">
     <div class="stat">
-      <span class="label">Ukupno narudžbi</span>
+      <span class="label">Total orders</span>
       <span class="value">{{ totalOrders() }}</span>
     </div>
     <div class="stat">
-      <span class="label">Ukupno potrošeno</span>
-      <span class="value">{{ totalSpent() | currency }}</span>
+      <span class="label">Total spent</span>
+      <span class="value">{{ totalSpent() | currency: 'EUR' }}</span>
     </div>
     <div class="stat accent">
-      <span class="label">Loyalty bodovi</span>
+      <span class="label">Loyalty points</span>
       <span class="value">⭐ {{ loyaltyPoints() }}</span>
-      <span class="hint">1 bod na svakih {{ spendPerPoint }} potrošenih</span>
+      <span class="hint">1 point for every {{ spendPerPoint }} spent</span>
     </div>
     <div class="stat">
-      <span class="label">Prosječna narudžba</span>
-      <span class="value">{{ avgOrder() | currency }}</span>
+      <span class="label">Average order</span>
+      <span class="value">{{ avgOrder() | currency: 'EUR' }}</span>
     </div>
   </section>
 
-  <h2>Historija kupovine</h2>
+  <h2>Purchase history</h2>
   @if (sortedOrders().length === 0) {
-    <div class="empty">Ovaj kupac još nema narudžbi.</div>
+    <div class="empty">This customer has no orders yet.</div>
   } @else {
     <div class="orders">
       @for (o of sortedOrders(); track o.id) {
         <div class="order">
           <button class="order-row" (click)="toggle(o.id)">
             <span class="oid">#{{ o.id }}</span>
-            <span class="odate">{{ date(o.createdAt) | date: 'dd.MM.yyyy HH:mm' }}</span>
+            <span class="odate">{{ date(o.createdAt) | date: 'MMM d, y, h:mm a' }}</span>
             <span class="muted obranch">{{ o.branch?.name || '' }}</span>
             <span class="pay">{{ o.paymentType || '—' }}</span>
-            <span class="muted">{{ o.items.length }} stavki</span>
-            <strong class="total">{{ o.totalAmount | currency }}</strong>
+            <span class="muted">
+              {{ o.items.length }} {{ o.items.length === 1 ? 'item' : 'items' }}
+            </span>
+            <strong class="total">{{ o.totalAmount | currency: 'EUR' }}</strong>
             <span class="chev">{{ expanded().has(o.id) ? '▲' : '▼' }}</span>
           </button>
 
@@ -68,19 +70,19 @@
             <table class="items">
               <thead>
                 <tr>
-                  <th>Proizvod</th>
-                  <th>Kol.</th>
-                  <th>Cijena</th>
-                  <th>Ukupno</th>
+                  <th>Product</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th>Total</th>
                 </tr>
               </thead>
               <tbody>
                 @for (it of o.items; track it.id) {
                   <tr>
-                    <td>{{ it.product?.name || 'Proizvod #' + it.productId }}</td>
+                    <td>{{ it.product?.name || 'Product #' + it.productId }}</td>
                     <td>{{ it.quantity }}</td>
-                    <td>{{ it.price / (it.quantity || 1) | currency }}</td>
-                    <td>{{ it.price | currency }}</td>
+                    <td>{{ it.price / (it.quantity || 1) | currency: 'EUR' }}</td>
+                    <td>{{ it.price | currency: 'EUR' }}</td>
                   </tr>
                 }
               </tbody>
@@ -92,6 +94,11 @@
   }
 
   @if (editing()) {
-    <app-customer-form [customer]="c" (saved)="onSaved($event)" (closed)="editing.set(false)" />
+    <app-customer-form
+      [customer]="c"
+      language="en"
+      (saved)="onSaved($event)"
+      (closed)="editing.set(false)"
+    />
   }
 }

@@ -5,6 +5,7 @@ import {
   branchCashierGuard,
   branchOperationsGuard,
   branchOrdersGuard,
+  landingGuard,
 } from './core/auth.guard';
 import { Login } from './pages/login/login';
 import { CustomerList } from './pages/customer-list/customer-list';
@@ -25,6 +26,12 @@ export const routes: Routes = [
     canActivate: [authGuard, branchOrdersGuard],
   },
   {
+    path: 'cashier',
+    loadComponent: () =>
+      import('./pages/cashier-dashboard/cashier-dashboard').then((m) => m.CashierDashboard),
+    canActivate: [authGuard, branchCashierGuard],
+  },
+  {
     path: 'refund',
     loadComponent: () => import('./pages/refund/refund').then((m) => m.Refund),
     canActivate: [authGuard, branchCashierGuard],
@@ -41,6 +48,6 @@ export const routes: Routes = [
     // Detalji se prikazuju u <router-outlet> unutar CustomerList (desna strana iste stranice)
     children: [{ path: ':id', component: CustomerDetail }],
   },
-  { path: '', pathMatch: 'full', redirectTo: 'shift-summary' },
+  { path: '', pathMatch: 'full', canActivate: [authGuard, landingGuard], component: ShiftSummary },
   { path: '**', redirectTo: 'shift-summary' },
 ];

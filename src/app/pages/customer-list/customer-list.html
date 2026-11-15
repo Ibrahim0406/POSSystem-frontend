@@ -1,22 +1,22 @@
 <div class="layout" [class.split]="hasDetail()">
-  <!-- LIJEVO: lista kupaca -->
+  <!-- Customer list -->
   <section class="left">
     <div class="head">
       <div>
-        <h1>Kupci</h1>
+        <h1>Customers</h1>
         <p class="muted">
-          {{ customers().length }} {{ customers().length === 1 ? 'kupac' : 'kupaca' }}
+          {{ customers().length }} {{ customers().length === 1 ? 'customer' : 'customers' }}
         </p>
       </div>
       @if (canCreateCustomer()) {
-        <button hlmBtn (click)="openCreateForm()">+ Novi</button>
+        <button hlmBtn (click)="openCreateForm()">+ Add customer</button>
       }
     </div>
 
     <input
       class="search"
       type="search"
-      placeholder="Pretraži po imenu ili emailu…"
+      placeholder="Search by name or email..."
       [value]="query()"
       (input)="query.set($any($event.target).value)"
     />
@@ -26,10 +26,10 @@
     }
 
     @if (loading()) {
-      <p class="muted center">Učitavanje…</p>
+      <p class="muted center">Loading customers...</p>
     } @else if (customers().length === 0 && !error()) {
       <div class="empty">
-        <p>{{ query() ? 'Nema rezultata za "' + query() + '".' : 'Još nema kupaca.' }}</p>
+        <p>{{ query() ? 'No results for "' + query() + '".' : 'No customers yet.' }}</p>
       </div>
     } @else {
       <div class="grid">
@@ -38,11 +38,11 @@
             <span class="avatar">{{ initials(c.fullName) }}</span>
             <span class="info">
               <strong>{{ c.fullName }}</strong>
-              <span class="muted">{{ c.email || 'bez emaila' }}</span>
-              <span class="muted">{{ c.phone || 'bez telefona' }}</span>
+              <span class="muted">{{ c.email || 'No email' }}</span>
+              <span class="muted">{{ c.phone || 'No phone' }}</span>
             </span>
             @if (c.createdAt && !hasDetail()) {
-              <span class="since muted">od {{ date(c.createdAt) | date: 'dd.MM.yyyy' }}</span>
+              <span class="since muted">Since {{ date(c.createdAt) | date: 'MMM d, y' }}</span>
             }
           </a>
         }
@@ -50,12 +50,16 @@
     }
   </section>
 
-  <!-- DESNO: detalji odabranog kupca (child route) -->
+  <!-- Selected customer details -->
   <section class="right" [hidden]="!hasDetail()">
     <router-outlet (activate)="hasDetail.set(true)" (deactivate)="hasDetail.set(false)" />
   </section>
 </div>
 
 @if (showForm() && canCreateCustomer()) {
-  <app-customer-form (saved)="onSaved($event)" (closed)="showForm.set(false)" />
+  <app-customer-form
+    language="en"
+    (saved)="onSaved($event)"
+    (closed)="showForm.set(false)"
+  />
 }
