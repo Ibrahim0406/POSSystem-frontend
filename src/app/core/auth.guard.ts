@@ -7,6 +7,13 @@ export const authGuard: CanActivateFn = () => {
   return auth.isLoggedIn() ? true : inject(Router).createUrlTree(['login']);
 };
 
+export const landingGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  if (auth.isAdmin()) return inject(Router).createUrlTree(['/admin']);
+  if (auth.canRefund()) return inject(Router).createUrlTree(['/cashier']);
+  return inject(Router).createUrlTree(['/shift-summary']);
+};
+
 export const branchOrdersGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   return auth.canViewBranchOrders() ? true : inject(Router).createUrlTree(['/shift-summary']);

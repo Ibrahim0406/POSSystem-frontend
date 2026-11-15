@@ -1,0 +1,256 @@
+<section class="dashboard">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">POINT OF SALE</p>
+      <h1>Create new order</h1>
+      <p class="subtitle">Build a cart, select a customer and review the order.</p>
+    </div>
+    <button class="new-order-button" type="button" (click)="startNewOrder()">
+      <span aria-hidden="true">＋</span> New order
+    </button>
+  </header>
+
+  @if (error()) {
+    <div class="notice notice-error" role="alert">{{ error() }}</div>
+  }
+  @if (success()) {
+    <div class="notice notice-success" role="status">{{ success() }}</div>
+  }
+
+  <div class="workspace">
+    <section class="catalog-panel panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Products</h2>
+          <p>Find an item and add it to the cart</p>
+        </div>
+        <span class="count-pill">{{ filteredProducts().length }} items</span>
+      </div>
+      <label class="search-box">
+        <span aria-hidden="true">⌕</span>
+        <input
+          type="search"
+          placeholder="Search products..."
+          aria-label="Search products"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+        />
+        @if (search()) {
+          <button type="button" aria-label="Clear search" (click)="search.set('')">×</button>
+        }
+      </label>
+
+      @if (loadingProducts()) {
+        <div class="empty-state"><p>Loading products...</p></div>
+      } @else if (!filteredProducts().length) {
+        <div class="empty-state">
+          <span aria-hidden="true">⌕</span>
+          <p>{{ search() ? 'No products match your search.' : 'No products available yet.' }}</p>
+        </div>
+      } @else {
+        <div class="product-list">
+          @for (product of filteredProducts(); track product.id) {
+            <article class="product-card">
+              <div class="product-image">
+                @if (product.imageUrl) {
+                  <img [src]="product.imageUrl" [alt]="product.name" />
+                } @else {
+                  <span>{{ productInitial(product) }}</span>
+                }
+              </div>
+              <div class="product-info">
+                <strong>{{ product.name }}</strong>
+                <span>{{ product.brand || product.sku }}</span>
+                @if (product.sellingPrice != null) {
+                  <b>{{ product.sellingPrice | currency: 'EUR' }}</b>
+                } @else {
+                  <span class="unavailable-price">Price unavailable</span>
+                }
+              </div>
+              <button
+                type="button"
+                class="add-button"
+                [attr.aria-label]="'Add ' + product.name + ' to cart'"
+                [disabled]="product.sellingPrice == null"
+                (click)="addProduct(product)"
+              >
+                +
+              </button>
+            </article>
+          }
+        </div>
+      }
+    </section>
+
+    <section class="cart-panel panel">
+      <div class="panel-heading cart-heading">
+        <div class="cart-title">
+          <span class="cart-emoji" aria-hidden="true">🛒</span>
+          <div>
+            <h2>Cart <span class="cart-count">{{ itemCount() }}</span></h2>
+            <p>{{ itemCount() }} {{ itemCount() === 1 ? 'item' : 'items' }} in this order</p>
+          </div>
+        </div>
+        <button
+          class="text-button danger-text"
+          type="button"
+          [disabled]="!cart().length"
+          (click)="clearCart()"
+        >
+          Clear cart
+        </button>
+      </div>
+
+      <div class="cart-items">
+        @if (!cart().length) {
+          <div class="empty-state cart-empty">
+            <span aria-hidden="true">🛍️</span>
+            <strong>Your cart is empty</strong>
+            <p>Add products from the catalog to get started.</p>
+          </div>
+        } @else {
+          @for (item of cart(); track item.product.id) {
+            <article class="cart-item">
+              <div class="cart-product-mark">{{ productInitial(item.product) }}</div>
+              <div class="cart-item-info">
+                <strong>{{ item.product.name }}</strong>
+                <span>{{ (item.product.sellingPrice ?? 0) | currency: 'EUR' }} each</span>
+                <div class="quantity-control" [attr.aria-label]="'Quantity for ' + item.product.name">
+                  <button
+                    type="button"
+                    [attr.aria-label]="'Decrease ' + item.product.name"
+                    (click)="changeQuantity(item.product.id, -1)"
+                  >−</button>
+                  <span>{{ item.quantity }}</span>
+                  <button
+                    type="button"
+                    [attr.aria-label]="'Increase ' + item.product.name"
+                    (click)="changeQuantity(item.product.id, 1)"
+                  >+</button>
+                </div>
+              </div>
+              <div class="cart-item-end">
+                <strong>{{ (item.product.sellingPrice ?? 0) * item.quantity | currency: 'EUR' }}</strong>
+                <button
+                  type="button"
+                  class="delete-button"
+                  [attr.aria-label]="'Remove ' + item.product.name"
+                  (click)="removeProduct(item.product.id)"
+                >🗑️</button>
+              </div>
+            </article>
+          }
+        }
+      </div>
+
+      <section class="order-details">
+        <div class="section-title">
+          <span class="section-icon" aria-hidden="true">▤</span>
+          <h3>Order details</h3>
+        </div>
+        <div class="detail-row"><span>Subtotal</span><strong>{{ subtotal() | currency: 'EUR' }}</strong></div>
+        <div class="discount-row">
+          <label for="discount">Discount</label>
+          <div class="discount-entry">
+            <input id="discount" type="number" min="0" max="100" [value]="discountPercent()" (input)="setDiscount($event)" />
+            <span>%</span>
+          </div>
+          <strong class="discount-value">−{{ discountAmount() | currency: 'EUR' }}</strong>
+        </div>
+      </section>
+    </section>
+
+    <aside class="checkout-panel">
+      <section class="panel customer-panel">
+        <div class="panel-heading compact-heading">
+          <div>
+            <h2>Customer</h2>
+            <p>Choose who this order is for</p>
+          </div>
+          <button class="add-customer-button" type="button" (click)="showCustomerForm.set(true)">
+            <span aria-hidden="true">＋</span> Add
+          </button>
+        </div>
+        <label class="select-wrap">
+          <span class="customer-emoji" aria-hidden="true">👤</span>
+          <select
+            aria-label="Select customer"
+            [value]="selectedCustomer()?.id ?? ''"
+            [disabled]="loadingCustomers()"
+            (change)="selectCustomer($any($event.target).value)"
+          >
+            <option value="">Walk-in customer</option>
+            @for (customer of customers(); track customer.id) {
+              <option [value]="customer.id">{{ customer.fullName }}</option>
+            }
+          </select>
+          <span class="select-arrow" aria-hidden="true">⌄</span>
+        </label>
+        @if (loadingCustomers()) {
+          <p class="field-hint">Loading customers...</p>
+        }
+      </section>
+
+      <section class="panel note-panel">
+        <div class="section-title">
+          <span class="section-icon" aria-hidden="true">✎</span>
+          <h3>Order note</h3>
+          <span class="optional">Optional</span>
+        </div>
+        <textarea
+          rows="3"
+          placeholder="Add a note for this order..."
+          [value]="note()"
+          (input)="note.set($any($event.target).value)"
+        ></textarea>
+        <p class="field-hint">Notes are not saved by the current order API.</p>
+      </section>
+
+      <section class="payment-card">
+        <div class="section-title">
+          <span class="section-icon" aria-hidden="true">€</span>
+          <h3>Payment method</h3>
+        </div>
+        <div class="payment-options" role="group" aria-label="Payment method">
+          @for (method of ['CASH', 'CARD', 'UPI']; track method) {
+            <button
+              type="button"
+              [class.selected]="paymentType() === method"
+              (click)="paymentType.set($any(method))"
+            >{{ method }}</button>
+          }
+        </div>
+      </section>
+
+      <footer class="total-card">
+        <div class="total-row">
+          <span>Total amount</span>
+          <strong>{{ total() | currency: 'EUR' }}</strong>
+        </div>
+        @if (discountPercent() > 0) {
+          <p class="checkout-warning">The order API does not store discounts. Remove the discount to proceed.</p>
+        }
+        <button
+          class="checkout-button"
+          type="button"
+          [disabled]="!cart().length || submitting() || discountPercent() > 0"
+          (click)="proceedPayment()"
+        >
+          @if (submitting()) {
+            Creating order...
+          } @else {
+            Proceed to payment <span aria-hidden="true">→</span>
+          }
+        </button>
+      </footer>
+    </aside>
+  </div>
+</section>
+
+@if (showCustomerForm()) {
+  <app-customer-form
+    language="en"
+    (saved)="onCustomerSaved($event)"
+    (closed)="showCustomerForm.set(false)"
+  />
+}

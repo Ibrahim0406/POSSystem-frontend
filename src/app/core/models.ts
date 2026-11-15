@@ -7,6 +7,24 @@ export interface Customer {
   updatedAt?: string | number[] | null;
 }
 
+export interface Product {
+  id: number;
+  name: string;
+  sku: string;
+  sellingPrice: number | null;
+  mrp?: number | null;
+  description?: string | null;
+  brand?: string | null;
+  imageUrl?: string | null;
+  storeId?: number;
+}
+
+export interface Branch {
+  id: number;
+  storeId: number;
+  name?: string;
+}
+
 export type PaymentType = 'CASH' | 'UPI' | 'CARD';
 
 export interface OrderItem {

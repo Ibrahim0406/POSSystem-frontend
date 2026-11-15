@@ -14,26 +14,46 @@ import { HlmButton } from '@spartan-ng/helm/button/src';
         (ngSubmit)="submit()"
         (click)="$event.stopPropagation()"
       >
-        <h2>{{ customer() ? 'Uredi kupca' : 'Novi kupac' }}</h2>
+        <h2>
+          {{
+            language() === 'en'
+              ? customer()
+                ? 'Edit customer'
+                : 'New customer'
+              : customer()
+                ? 'Uredi kupca'
+                : 'Novi kupac'
+          }}
+        </h2>
 
         <label
-          >Ime i prezime *
-          <input formControlName="fullName" placeholder="npr. Amar Hadžić" autofocus />
+          >{{ language() === 'en' ? 'Full name *' : 'Ime i prezime *' }}
+          <input
+            formControlName="fullName"
+            [placeholder]="language() === 'en' ? 'e.g. Alex Morgan' : 'npr. Amar Hadžić'"
+            autofocus
+          />
         </label>
         @if (form.controls.fullName.touched && form.controls.fullName.invalid) {
-          <small class="err">Ime je obavezno.</small>
+          <small class="err">{{ language() === 'en' ? 'Name is required.' : 'Ime je obavezno.' }}</small>
         }
 
         <label
           >Email
-          <input formControlName="email" type="email" placeholder="amar@example.com" />
+          <input
+            formControlName="email"
+            type="email"
+            [placeholder]="language() === 'en' ? 'alex@example.com' : 'amar@example.com'"
+          />
         </label>
         @if (form.controls.email.touched && form.controls.email.invalid) {
-          <small class="err">Unesite ispravan email.</small>
+          <small class="err">
+            {{ language() === 'en' ? 'Enter a valid email address.' : 'Unesite ispravan email.' }}
+          </small>
         }
 
         <label
-          >Telefon
+          >{{ language() === 'en' ? 'Phone' : 'Telefon' }}
           <input formControlName="phone" placeholder="+387 61 123 456" />
         </label>
 
@@ -42,9 +62,19 @@ import { HlmButton } from '@spartan-ng/helm/button/src';
         }
 
         <div class="actions">
-          <button type="button" hlmBtn variant="outline" (click)="closed.emit()">Odustani</button>
+          <button type="button" hlmBtn variant="outline" (click)="closed.emit()">
+            {{ language() === 'en' ? 'Cancel' : 'Odustani' }}
+          </button>
           <button type="submit" hlmBtn [disabled]="saving()">
-            {{ saving() ? 'Spremam…' : 'Spremi' }}
+            {{
+              saving()
+                ? language() === 'en'
+                  ? 'Saving…'
+                  : 'Spremam…'
+                : language() === 'en'
+                  ? 'Save'
+                  : 'Spremi'
+            }}
           </button>
         </div>
       </form>
@@ -100,6 +130,7 @@ export class CustomerForm {
   private api = inject(CustomerService);
 
   customer = input<Customer | null>(null);
+  language = input<'bs' | 'en'>('bs');
   saved = output<Customer>();
   closed = output<void>();
 
@@ -144,7 +175,11 @@ export class CustomerForm {
       },
       error: () => {
         this.saving.set(false);
-        this.error.set('Spremanje nije uspjelo. Pokušajte ponovo.');
+        this.error.set(
+          this.language() === 'en'
+            ? 'Could not save the customer. Please try again.'
+            : 'Spremanje nije uspjelo. Pokušajte ponovo.',
+        );
       },
     });
   }

@@ -75,7 +75,10 @@ export class Login {
     this.loading.set(true);
     this.error.set('');
     this.auth.login(email, password).subscribe({
-      next: () => this.router.navigate([this.auth.isAdmin() ? '/admin' : '/customers']),
+      next: () =>
+        this.router.navigate([
+          this.auth.isAdmin() ? '/admin' : this.auth.canRefund() ? '/cashier' : '/customers',
+        ]),
       error: (err) => {
         this.loading.set(false);
         const backendDown =
