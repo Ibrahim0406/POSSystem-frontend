@@ -8,9 +8,11 @@ import {
   AdminDashboardData,
   AdminStore,
   AdminUser,
+  AdminUserCreateRequest,
   AdminUserRole,
   Branch,
   BranchCreateRequest,
+  CreatableAdminUserRole,
   StoreStatus,
   StoreCreateRequest,
   SupportReport,
@@ -21,6 +23,9 @@ import { AdminService } from '../../core/admin.service';
 import { AuthService } from '../../core/auth.service';
 
 type AdminSection = 'dashboard' | 'stores' | 'users' | 'support' | 'audit' | 'settings';
+type AdminUserDraft = Omit<AdminUserCreateRequest, 'role'> & {
+  role: CreatableAdminUserRole | '';
+};
 
 const USER_ROLES: AdminUserRole[] = [
   'ROLE_ADMIN',
@@ -29,6 +34,9 @@ const USER_ROLES: AdminUserRole[] = [
   'ROLE_BRANCH_MANAGER',
   'ROLE_BRANCH_CASHIER',
 ];
+const CREATABLE_USER_ROLES = USER_ROLES.filter(
+  (role): role is CreatableAdminUserRole => role !== 'ROLE_ADMIN',
+);
 const STORE_STATUSES: StoreStatus[] = ['PENDING', 'ACTIVE', 'BLOCKED'];
 const ACCOUNT_STATUSES: AccountStatus[] = ['ACTIVE', 'DISABLED'];
 const SUPPORT_STATUSES: SupportReportStatus[] = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'];
@@ -36,6 +44,10 @@ const WORKING_DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'S
 
 function isAdminUserRole(value: string): value is AdminUserRole {
   return USER_ROLES.some((role) => role === value);
+}
+
+function isCreatableUserRole(value: string): value is CreatableAdminUserRole {
+  return CREATABLE_USER_ROLES.some((role) => role === value);
 }
 
 @Component({
@@ -49,6 +61,7 @@ export class AdminConsole {
   private api = inject(AdminService);
   private auth = inject(AuthService);
   private document = inject(DOCUMENT);
+  private userBranchesRequest = 0;
 
   readonly sections: { id: AdminSection; label: string }[] = [
     { id: 'dashboard', label: 'Dashboard' },
@@ -59,6 +72,7 @@ export class AdminConsole {
     { id: 'settings', label: 'System settings' },
   ];
   readonly userRoles = USER_ROLES;
+  readonly creatableUserRoles = CREATABLE_USER_ROLES;
   readonly storeStatuses = STORE_STATUSES;
   readonly accountStatuses = ACCOUNT_STATUSES;
   readonly supportStatuses = SUPPORT_STATUSES;
@@ -105,6 +119,19 @@ export class AdminConsole {
   readonly userRole = signal<AdminUserRole | ''>('');
   readonly userStatus = signal<AccountStatus | ''>('');
   readonly userRoleDrafts = signal<Record<number, AdminUserRole>>({});
+  readonly showUserForm = signal(false);
+  readonly userStores = signal<AdminStore[]>([]);
+  readonly userStoresLoading = signal(false);
+  readonly userStoresError = signal('');
+  readonly userBranches = signal<Branch[]>([]);
+  readonly userBranchesLoading = signal(false);
+  readonly userBranchesError = signal('');
+  readonly userDraft = signal<AdminUserDraft>({
+    fullName: '',
+    email: '',
+    password: '',
+    role: '',
+  });
 
   readonly supportReports = signal<SupportReport[]>([]);
   readonly supportStatus = signal<SupportReportStatus | ''>('');
@@ -360,6 +387,165 @@ export class AdminConsole {
 
   setUserStatusFilter(value: string) {
     this.userStatus.set(ACCOUNT_STATUSES.find((status) => status === value) ?? '');
+  }
+
+  toggleUserForm() {
+    const show = !this.showUserForm();
+    this.showUserForm.set(show);
+    if (show) {
+      this.userDraft.update((draft) => ({ ...draft, role: '', branchId: undefined }));
+      this.clearUserBranches();
+    }
+    if (show && this.userStores().length === 0) this.loadUserStores();
+  }
+
+  loadUserStores() {
+    this.userStoresLoading.set(true);
+    this.userStoresError.set('');
+    this.api
+      .getStores()
+      .pipe(finalize(() => this.userStoresLoading.set(false)))
+      .subscribe({
+        next: (stores) => this.userStores.set(stores),
+        error: () => this.userStoresError.set('Unable to load stores for the new user.'),
+      });
+  }
+
+  creatableStores() {
+    return this.userStores();
+  }
+
+  updateUserDraft(field: 'fullName' | 'email' | 'password' | 'phone', value: string) {
+    this.userDraft.update((draft) => ({ ...draft, [field]: value }));
+  }
+
+  setCreateUserRole(value: string) {
+    if (value === '') {
+      this.userDraft.update((draft) => ({ ...draft, role: '', branchId: undefined }));
+      this.clearUserBranches();
+      return;
+    }
+    if (!isCreatableUserRole(value)) return;
+    const storeId = this.userDraft().storeId;
+    this.userDraft.update((draft) => ({ ...draft, role: value, branchId: undefined }));
+    this.clearUserBranches();
+    if (this.requiresBranch(value) && storeId != null) this.loadUserBranches(storeId);
+  }
+
+  requiresBranch(role = this.userDraft().role) {
+    return role === 'ROLE_BRANCH_MANAGER' || role === 'ROLE_BRANCH_CASHIER';
+  }
+
+  setCreateUserStore(value: string) {
+    const storeId = Number(value);
+    if (!this.creatableStores().some((store) => store.id === storeId)) {
+      this.userDraft.update((draft) => ({ ...draft, storeId: undefined, branchId: undefined }));
+      this.clearUserBranches();
+      return;
+    }
+
+    this.userDraft.update((draft) => ({ ...draft, storeId, branchId: undefined }));
+    if (this.requiresBranch()) this.loadUserBranches(storeId);
+    else this.clearUserBranches();
+  }
+
+  loadUserBranches(storeId: number) {
+    const request = ++this.userBranchesRequest;
+    this.userBranches.set([]);
+    this.userBranchesLoading.set(true);
+    this.userBranchesError.set('');
+    this.api
+      .getBranches(storeId)
+      .pipe(
+        finalize(() => {
+          if (request === this.userBranchesRequest) this.userBranchesLoading.set(false);
+        }),
+      )
+      .subscribe({
+        next: (branches) => {
+          if (request === this.userBranchesRequest) this.userBranches.set(branches);
+        },
+        error: () => {
+          if (request === this.userBranchesRequest) {
+            this.userBranchesError.set('Unable to load branches for this store.');
+          }
+        },
+      });
+  }
+
+  private clearUserBranches() {
+    this.userBranchesRequest++;
+    this.userBranches.set([]);
+    this.userBranchesLoading.set(false);
+    this.userBranchesError.set('');
+  }
+
+  setCreateUserBranch(value: string) {
+    const branchId = Number(value);
+    if (!this.userBranches().some((branch) => branch.id === branchId)) {
+      this.userDraft.update((draft) => ({ ...draft, branchId: undefined }));
+      return;
+    }
+    this.userDraft.update((draft) => ({ ...draft, branchId }));
+  }
+
+  createUser(event: Event) {
+    event.preventDefault();
+    const draft = this.userDraft();
+    if (!draft.role) {
+      this.actionFailure('Select a role for the new user.');
+      return;
+    }
+    const store = this.userStores().find((item) => item.id === draft.storeId);
+    if (
+      !draft.fullName.trim() ||
+      !draft.email.trim() ||
+      !draft.password.trim() ||
+      !store ||
+      (this.requiresBranch(draft.role) &&
+        !this.userBranches().some((branch) => branch.id === draft.branchId))
+    ) {
+      this.actionFailure('Complete the user details and select a valid store or branch.');
+      return;
+    }
+
+    const request: AdminUserCreateRequest = {
+      fullName: draft.fullName.trim(),
+      email: draft.email.trim(),
+      password: draft.password,
+      role: draft.role,
+      phone: draft.phone?.trim() || undefined,
+      storeId: draft.storeId,
+      branchId: draft.branchId,
+    };
+
+    this.runAction('create-user');
+    this.api.createUser(request).subscribe({
+      next: () => {
+        this.showUserForm.set(false);
+        this.clearUserBranches();
+        this.userDraft.set({
+          fullName: '',
+          email: '',
+          password: '',
+          role: '',
+        });
+        this.api
+          .getUsers({ query: this.userQuery(), role: this.userRole(), status: this.userStatus() })
+          .subscribe({
+            next: (users) => {
+              this.users.set(users);
+              this.userRoleDrafts.set(
+                Object.fromEntries(users.map((user) => [user.id, user.role])),
+              );
+              this.actionSuccess('User created successfully.');
+            },
+            error: () =>
+              this.actionFailure('User created, but the user list could not be refreshed.'),
+          });
+      },
+      error: () => this.actionFailure('Unable to create the user. Check the details and try again.'),
+    });
   }
 
   setUserRoleDraft(userId: number, role: string) {
