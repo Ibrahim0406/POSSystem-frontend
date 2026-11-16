@@ -27,9 +27,14 @@ export class CustomerList {
   showForm = signal(false);
   canCreateCustomer = computed(() => {
     const role = this.auth.user()?.role.trim().toUpperCase().replace(/^ROLE_/, '');
-    return ['ADMIN', 'STORE_ADMIN', 'MANAGER', 'STORE_MANAGER', 'BRANCH_MANAGER'].includes(
-      role ?? '',
-    );
+    return [
+      'ADMIN',
+      'STORE_ADMIN',
+      'MANAGER',
+      'STORE_MANAGER',
+      'BRANCH_MANAGER',
+      'BRANCH_CASHIER',
+    ].includes(role ?? '');
   });
   /** True when a customer is open in the child route, showing the two-column layout. */
   hasDetail = signal(false);
