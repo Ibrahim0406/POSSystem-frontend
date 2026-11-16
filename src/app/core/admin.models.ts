@@ -6,6 +6,7 @@ export type AdminUserRole =
   | 'ROLE_BRANCH_CASHIER'
   | 'ROLE_STORE_MANAGER'
   | 'ROLE_BRANCH_MANAGER';
+export type CreatableAdminUserRole = Exclude<AdminUserRole, 'ROLE_ADMIN'>;
 export type SupportReportStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED';
 
 export interface AdminDashboardData {
@@ -62,6 +63,16 @@ export interface AdminUser {
   branchId?: number | null;
   createdAt?: string | null;
   lastLogin?: string | null;
+}
+
+export interface AdminUserCreateRequest {
+  fullName: string;
+  email: string;
+  password: string;
+  role: CreatableAdminUserRole;
+  phone?: string;
+  storeId?: number;
+  branchId?: number;
 }
 
 export interface SupportReport {

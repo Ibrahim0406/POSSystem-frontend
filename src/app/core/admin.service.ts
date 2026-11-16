@@ -6,6 +6,7 @@ import {
   AdminDashboardData,
   AdminStore,
   AdminUser,
+  AdminUserCreateRequest,
   AdminUserRole,
   Branch,
   BranchCreateRequest,
@@ -57,6 +58,10 @@ export class AdminService {
     if (filters.role) params = params.set('role', filters.role);
     if (filters.status) params = params.set('status', filters.status);
     return this.http.get<AdminUser[]>('/api/admin/users', { params });
+  }
+
+  createUser(user: AdminUserCreateRequest) {
+    return this.http.post<AdminUser>('/api/admin/users', user);
   }
 
   updateUserRole(id: number, role: AdminUserRole) {

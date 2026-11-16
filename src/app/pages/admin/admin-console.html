@@ -33,7 +33,7 @@
             <p>Review stores and manage their approval status.</p>
           }
           @case ('users') {
-            <p>Review accounts and manage access roles and status.</p>
+            <p>Create accounts, assign roles, and manage access status.</p>
           }
           @case ('support') {
             <p>Review and update submitted support reports.</p>
@@ -456,6 +456,142 @@
 
       @case ('users') {
         <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h3>Users and roles</h3>
+              <span>Create accounts and assign access to a store or branch.</span>
+            </div>
+            <button hlmBtn type="button" variant="outline" (click)="toggleUserForm()">
+              {{ showUserForm() ? 'Cancel' : 'Add user' }}
+            </button>
+          </div>
+
+          @if (showUserForm()) {
+            <div class="creation-form">
+              <h3>Add user</h3>
+              @if (userStoresError()) {
+                <p class="error-text" role="alert">{{ userStoresError() }}</p>
+              }
+              <form (submit)="createUser($event)">
+                <div class="form-grid">
+                  <label>
+                    <span>Full name</span>
+                    <input
+                      type="text"
+                      required
+                      maxlength="255"
+                      autocomplete="name"
+                      [value]="userDraft().fullName"
+                      (input)="updateUserDraft('fullName', $any($event.target).value)"
+                    />
+                  </label>
+                  <label>
+                    <span>Email</span>
+                    <input
+                      type="email"
+                      required
+                      maxlength="255"
+                      autocomplete="email"
+                      [value]="userDraft().email"
+                      (input)="updateUserDraft('email', $any($event.target).value)"
+                    />
+                  </label>
+                  <label>
+                    <span>Initial password</span>
+                    <input
+                      type="password"
+                      required
+                      autocomplete="new-password"
+                      [value]="userDraft().password"
+                      (input)="updateUserDraft('password', $any($event.target).value)"
+                    />
+                  </label>
+                  <label>
+                    <span>Phone (optional)</span>
+                    <input
+                      type="tel"
+                      maxlength="255"
+                      autocomplete="tel"
+                      [value]="userDraft().phone || ''"
+                      (input)="updateUserDraft('phone', $any($event.target).value)"
+                    />
+                  </label>
+                  <label>
+                    <span>Role</span>
+                    <select
+                      required
+                      [value]="userDraft().role"
+                      (change)="setCreateUserRole($any($event.target).value)"
+                    >
+                      <option value="" disabled>Select a role</option>
+                      @for (role of creatableUserRoles; track role) {
+                        <option [value]="role">{{ label(role) }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label>
+                    <span>Store</span>
+                    <select
+                      required
+                      [disabled]="userStoresLoading()"
+                      [value]="userDraft().storeId ?? ''"
+                      (change)="setCreateUserStore($any($event.target).value)"
+                    >
+                      <option value="" disabled>Select a store</option>
+                      @for (store of creatableStores(); track store.id) {
+                        <option [value]="store.id">{{ store.name }}</option>
+                      }
+                    </select>
+                    @if (userStoresLoading()) {
+                      <small>Loading stores…</small>
+                    } @else if (creatableStores().length === 0) {
+                      <small>No stores are available.</small>
+                    }
+                  </label>
+                  @if (requiresBranch()) {
+                    <label>
+                      <span>Branch</span>
+                      <select
+                        required
+                        [disabled]="userDraft().storeId == null || userBranchesLoading()"
+                        [value]="userDraft().branchId ?? ''"
+                        (change)="setCreateUserBranch($any($event.target).value)"
+                      >
+                        <option value="">Select a branch</option>
+                        @for (branch of userBranches(); track branch.id) {
+                          <option [value]="branch.id">{{ branch.name }}</option>
+                        }
+                      </select>
+                      @if (userBranchesLoading()) {
+                        <small>Loading branches…</small>
+                      } @else if (userBranchesError()) {
+                        <small class="error-text">{{ userBranchesError() }}</small>
+                      } @else if (userDraft().storeId != null && userBranches().length === 0) {
+                        <small>No branches are available for this store.</small>
+                      }
+                    </label>
+                  }
+                </div>
+                <div class="actions-cell">
+                  <button
+                    hlmBtn
+                    type="submit"
+                    [disabled]="
+                      actionBusy() === 'create-user' ||
+                      userStoresLoading() ||
+                      userBranchesLoading()
+                    "
+                  >
+                    {{ actionBusy() === 'create-user' ? 'Creating…' : 'Create user' }}
+                  </button>
+                  <button hlmBtn variant="outline" type="button" (click)="toggleUserForm()">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          }
+
           <div class="filters">
             <label>
               <span>Search users</span>
