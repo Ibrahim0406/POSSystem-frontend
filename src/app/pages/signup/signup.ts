@@ -1,14 +1,23 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { HlmButton } from '@spartan-ng/helm/button';
-import { HlmH1, HlmH2, HlmMuted } from '@spartan-ng/helm/typography';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { AuthService } from '../../core/auth.service';
 import { authErrorMessage } from '../../core/auth-error-message';
 
 @Component({
   selector: 'app-signup',
-  imports: [ReactiveFormsModule, RouterLink, HlmButton, HlmH1, HlmH2, HlmMuted],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    HlmButtonImports,
+    HlmCardImports,
+    HlmInputImports,
+    HlmLabelImports,
+  ],
   templateUrl: './signup.html',
   styleUrl: './signup.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

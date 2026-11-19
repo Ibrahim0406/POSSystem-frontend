@@ -1,62 +1,90 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { HlmButton } from '@spartan-ng/helm/button';
-import { HlmH1, HlmMuted } from '@spartan-ng/helm/typography';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { AuthService } from '../../core/auth.service';
 import { authErrorMessage } from '../../core/auth-error-message';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink, HlmButton, HlmH1, HlmMuted],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    HlmButtonImports,
+    HlmCardImports,
+    HlmInputImports,
+    HlmLabelImports,
+  ],
   template: `
     <main class="auth-page">
-      <section class="auth-card" aria-labelledby="login-title">
-        <a class="brand" routerLink="/" aria-label="POS System home">
-          <span class="brand-mark" aria-hidden="true">P</span>
-          <span>POS System</span>
-        </a>
+      <hlm-card class="login-card" aria-labelledby="login-title">
+        <hlm-card-header class="card-header">
+          <div class="header-main">
+            <a class="brand" routerLink="/" aria-label="POS System home">
+              <span class="brand-mark" aria-hidden="true">P</span>
+              <span>POS System</span>
+            </a>
+            <div class="card-heading">
+              <h1 hlmCardTitle id="login-title">Login to your account</h1>
+              <p hlmCardDescription>Enter your email below to login to your account.</p>
+            </div>
+          </div>
+          <div hlmCardAction>
+            <a hlmBtn variant="link" routerLink="/signup">Sign Up</a>
+          </div>
+        </hlm-card-header>
 
-        <header class="card-heading">
-          <h1 hlmH1 id="login-title">Welcome back</h1>
-          <p hlmMuted>Sign in to your POS account.</p>
-        </header>
+        <div hlmCardContent>
+          <form id="login-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+            <div class="fields">
+              <div class="field">
+                <label hlmLabel for="login-email">Email</label>
+                <input
+                  id="login-email"
+                  type="email"
+                  hlmInput
+                  formControlName="email"
+                  autocomplete="email"
+                  placeholder="name@example.com"
+                  required
+                />
+              </div>
 
-        <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-          <label for="login-email">Email address</label>
-          <input
-            id="login-email"
-            type="email"
-            formControlName="email"
-            autocomplete="email"
-            placeholder="name@example.com"
-            required
-          />
+              <div class="field">
+                <label hlmLabel for="login-password">Password</label>
+                <input
+                  id="login-password"
+                  type="password"
+                  hlmInput
+                  formControlName="password"
+                  autocomplete="current-password"
+                  placeholder="Enter your password"
+                  required
+                />
+              </div>
+            </div>
 
-          <label for="login-password">Password</label>
-          <input
-            id="login-password"
-            type="password"
-            formControlName="password"
-            autocomplete="current-password"
-            placeholder="Enter your password"
-            required
-          />
+            @if (error()) {
+              <p class="form-error" role="alert">{{ error() }}</p>
+            }
+          </form>
+        </div>
 
-          @if (error()) {
-            <p class="form-error" role="alert">{{ error() }}</p>
-          }
-
-          <button hlmBtn type="submit" class="submit-button" [disabled]="form.invalid || loading()">
-            {{ loading() ? 'Signing in…' : 'Sign in' }}
+        <hlm-card-footer class="card-footer">
+          <button
+            hlmBtn
+            type="submit"
+            class="submit-button"
+            form="login-form"
+            [disabled]="form.invalid || loading()"
+          >
+            {{ loading() ? 'Signing in…' : 'Login' }}
           </button>
-        </form>
-
-        <p class="auth-footer">
-          Don't have an account?
-          <a routerLink="/signup">Register your store</a>
-        </p>
-      </section>
+        </hlm-card-footer>
+      </hlm-card>
     </main>
   `,
   styles: `
@@ -70,18 +98,29 @@ import { authErrorMessage } from '../../core/auth-error-message';
         var(--background);
     }
 
-    .auth-card {
-      width: min(100%, 440px);
-      padding: 36px;
-      border: 1px solid var(--border);
-      border-radius: calc(var(--radius) + 8px);
-      background: var(--card);
-      color: var(--card-foreground);
+    .login-card {
+      width: min(100%, 448px);
       box-shadow: 0 24px 70px oklch(0.2 0.03 260 / 10%);
+    }
+
+    .card-header {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+    }
+
+    .header-main {
+      display: grid;
+      gap: 24px;
+    }
+
+    .card-heading h1 {
+      margin: 0;
+      font-size: 1.25rem;
     }
 
     .brand {
       display: inline-flex;
+      width: fit-content;
       align-items: center;
       gap: 10px;
       color: inherit;
@@ -99,73 +138,39 @@ import { authErrorMessage } from '../../core/auth-error-message';
       color: var(--primary-foreground);
     }
 
-    .card-heading {
-      margin: 32px 0 24px;
+    .card-heading p {
+      margin: 6px 0 0;
     }
 
-    h1 {
-      margin: 0 0 8px;
-      font-size: 1.8rem;
+    .fields {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
     }
 
-    .card-heading p,
-    .auth-footer {
-      margin: 0;
-    }
-
-    form {
+    .field {
       display: grid;
-      gap: 10px;
-    }
-
-    label {
-      margin-top: 8px;
-      font-size: 0.875rem;
-      font-weight: 600;
-    }
-
-    input {
-      width: 100%;
-      min-height: 44px;
-      padding: 10px 12px;
-      border: 1px solid var(--input);
-      border-radius: var(--radius);
-      background: var(--background);
-      color: var(--foreground);
-    }
-
-    input:focus-visible {
-      outline: 2px solid var(--ring);
-      outline-offset: 2px;
+      gap: 8px;
     }
 
     .submit-button {
       width: 100%;
-      margin-top: 12px;
     }
 
-    .auth-footer {
-      margin-top: 24px;
-      color: var(--muted-foreground);
-      text-align: center;
-      font-size: 0.9rem;
-    }
-
-    .auth-footer a {
-      color: var(--foreground);
-      font-weight: 600;
-      text-underline-offset: 4px;
+    .card-footer {
+      flex-direction: column;
+      gap: 8px;
     }
 
     .form-error {
-      margin: 8px 0 0;
+      margin: 16px 0 0;
       color: var(--destructive);
       font-size: 0.875rem;
     }
 
     @media (max-width: 480px) {
-      .auth-card {
-        padding: 28px 22px;
+      .login-card {
+        width: 100%;
       }
     }
   `,
