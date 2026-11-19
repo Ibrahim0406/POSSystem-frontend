@@ -335,7 +335,7 @@
                         <button hlmBtn variant="outline" type="button" (click)="openStore(store)">
                           Details
                         </button>
-                        @if (store.status === 'PENDING') {
+                        @if (isPlatformAdmin() && store.status === 'PENDING') {
                           <button
                             hlmBtn
                             type="button"
@@ -353,7 +353,7 @@
                           >
                             Reject
                           </button>
-                        } @else if (store.status === 'ACTIVE') {
+                        } @else if (isPlatformAdmin() && store.status === 'ACTIVE') {
                           <button
                             hlmBtn
                             variant="destructive"
@@ -363,7 +363,7 @@
                           >
                             Block
                           </button>
-                        } @else {
+                        } @else if (isPlatformAdmin()) {
                           <button
                             hlmBtn
                             variant="outline"

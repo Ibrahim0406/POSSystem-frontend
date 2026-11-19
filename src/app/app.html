@@ -1,4 +1,7 @@
-@if (auth.isLoggedIn()) {
+@if (
+  auth.isLoggedIn() &&
+  (isAdmin() || auth.storeStatus() === null || auth.storeStatus() === 'ACTIVE')
+) {
   <div class="app-shell">
     <header class="top">
       <div class="top-left">

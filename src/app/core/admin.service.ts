@@ -41,7 +41,8 @@ export class AdminService {
   }
 
   updateStoreStatus(id: number, status: StoreStatus) {
-    return this.http.patch<AdminStore>(`/api/admin/stores/${id}/status`, { status });
+    const params = new HttpParams().set('status', status);
+    return this.http.put<void>(`/api/store/moderate/${id}`, null, { params });
   }
 
   getBranches(storeId: number) {

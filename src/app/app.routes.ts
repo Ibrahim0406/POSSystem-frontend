@@ -6,15 +6,22 @@ import {
   branchOperationsGuard,
   branchOrdersGuard,
   landingGuard,
+  storeStatusGuard,
 } from './core/auth.guard';
 import { Login } from './pages/login/login';
 import { CustomerList } from './pages/customer-list/customer-list';
 import { CustomerDetail } from './pages/customer-detail/customer-detail';
 import { ShiftSummary } from './pages/shift-summary/shift-summary';
 import { OrderHistory } from './pages/order-history/order-history';
+import { StoreStatusPage } from './pages/store-status/store-status';
 
 export const routes: Routes = [
   { path: 'login', component: Login },
+  {
+    path: 'signup',
+    loadComponent: () => import('./pages/signup/signup').then((module) => module.Signup),
+  },
+  { path: 'store-status', component: StoreStatusPage, canActivate: [authGuard, storeStatusGuard] },
   {
     path: 'shift-summary',
     component: ShiftSummary,

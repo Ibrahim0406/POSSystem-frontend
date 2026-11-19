@@ -1,3 +1,5 @@
+import { StoreStatus } from './admin.models';
+
 export interface Customer {
   id?: number;
   fullName: string;
@@ -98,12 +100,34 @@ export interface ShiftReport {
 
 export interface AuthResponse {
   jwt: string;
-  message: string;
+  message?: string;
+  storeStatus?: StoreStatus | null;
   user: {
     id: number;
     fullName: string;
     email: string;
     role: string;
     branchId?: number | null;
+    storeId?: number | null;
+    storeStatus?: StoreStatus | null;
+  };
+}
+
+export interface SignupResponse extends AuthResponse {
+  storeStatus: StoreStatus;
+}
+
+export interface SignupRequest {
+  ownerFullName: string;
+  ownerEmail: string;
+  ownerPassword: string;
+  ownerPhone: string;
+  storeBrand: string;
+  storeDescription: string;
+  storeType: string;
+  contact: {
+    address: string;
+    phone: string;
+    email: string;
   };
 }
