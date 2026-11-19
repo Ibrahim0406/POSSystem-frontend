@@ -59,4 +59,55 @@ describe('AuthService', () => {
     expect(auth.storeStatus()).toBe('PENDING');
     expect(localStorage.getItem('cms_store_status')).toBe('PENDING');
   });
+
+  it('keeps a platform administrator on the admin route when storeStatus is absent', () => {
+    auth.login('admin@example.com', 'password').subscribe();
+    http.expectOne('/auth/signin').flush({
+      jwt: 'admin-token',
+      user: {
+        id: 1,
+        fullName: 'Platform Admin',
+        email: 'admin@example.com',
+        role: 'ROLE_ADMIN',
+      },
+    });
+
+    expect(auth.storeStatus()).toBeNull();
+    expect(auth.homeRoute()).toBe('/admin');
+  });
+
+  it('uses the branch role and assignment instead of storeStatus to choose POS access', () => {
+    auth.login('cashier@example.com', 'password').subscribe();
+    http.expectOne('/auth/signin').flush({
+      jwt: 'cashier-token',
+      user: {
+        id: 2,
+        fullName: 'Branch Cashier',
+        email: 'cashier@example.com',
+        role: 'ROLE_BRANCH_CASHIER',
+        branchId: 7,
+      },
+    });
+
+    expect(auth.storeStatus()).toBeNull();
+    expect(auth.canViewBranchOrders()).toBe(true);
+    expect(auth.canRefund()).toBe(true);
+    expect(auth.homeRoute()).toBe('/cashier');
+  });
+
+  it('routes an unassigned tenant account to an access message, not POS', () => {
+    auth.login('unassigned@example.com', 'password').subscribe();
+    http.expectOne('/auth/signin').flush({
+      jwt: 'unassigned-token',
+      user: {
+        id: 3,
+        fullName: 'Unassigned User',
+        email: 'unassigned@example.com',
+        role: 'ROLE_STORE_MANAGER',
+      },
+    });
+
+    expect(auth.storeStatus()).toBeNull();
+    expect(auth.homeRoute()).toBe('/account-access');
+  });
 });

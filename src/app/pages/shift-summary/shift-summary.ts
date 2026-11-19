@@ -1,12 +1,14 @@
 import { CurrencyPipe, DatePipe, DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, finalize, interval, map, of, startWith } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { catchError, finalize, interval, map, of, startWith, throwError } from 'rxjs';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../../core/auth.service';
 import { PaymentType, ShiftRefund, ShiftReport } from '../../core/models';
 import { ShiftReportService } from '../../core/shift-report.service';
 import { toDate } from '../../core/loyalty';
+import { apiErrorMessage } from '../../core/api-error-message';
 
 @Component({
   selector: 'app-shift-summary',
@@ -68,9 +70,7 @@ export class ShiftSummary {
     return report ? this.shiftDuration(report) : '—';
   });
 
-  readonly isBranchManager = computed(
-    () => this.auth.user()?.role.trim().toUpperCase() === 'ROLE_BRANCH_MANAGER',
-  );
+  readonly isBranchManager = computed(() => this.auth.role() === 'BRANCH_MANAGER');
 
   readonly branchReports = signal<ShiftReport[]>([]);
 
@@ -92,6 +92,9 @@ export class ShiftSummary {
   load() {
     this.loading.set(true);
     this.error.set('');
+    this.report.set(null);
+    this.branchReports.set([]);
+    const scope = this.auth.scopeKey();
 
     if (this.isBranchManager()) {
       this.api
@@ -99,16 +102,21 @@ export class ShiftSummary {
         .pipe(finalize(() => this.loading.set(false)))
         .subscribe({
           next: (reports) => {
+            if (scope !== this.auth.scopeKey()) return;
             this.branchReports.set(
               [...reports].sort(
                 (a, b) => this.timestamp(b.shiftStart) - this.timestamp(a.shiftStart),
               ),
             );
           },
-          error: () => {
+          error: (error: unknown) => {
+            if (scope !== this.auth.scopeKey()) return;
             this.branchReports.set([]);
             this.error.set(
-              'Unable to load active cashier shifts for this branch. Check that the backend endpoint is available and try again.',
+              apiErrorMessage(
+                error,
+                'Unable to load active cashier shifts for this branch. Check that the backend endpoint is available and try again.',
+              ),
             );
           },
         });
@@ -117,16 +125,20 @@ export class ShiftSummary {
 
     const cashierId = this.auth.user()?.id;
     let historyRequestFailed = false;
+    let historyRequestError = '';
     const latestReport = cashierId
       ? this.api.getByCashier(cashierId).pipe(
-          map(
-            (reports) =>
-              [...reports].sort(
+        map((reports) =>
+          [...reports].sort(
                 (a, b) => this.timestamp(b.shiftStart) - this.timestamp(a.shiftStart),
               )[0] ?? null,
           ),
-          catchError(() => {
+        catchError((error: unknown) => {
             historyRequestFailed = true;
+          historyRequestError = apiErrorMessage(
+            error,
+            'Unable to load the shift report. Check that the backend is running and you are signed in.',
+          );
             return of(null);
           }),
         )
@@ -135,18 +147,36 @@ export class ShiftSummary {
     this.api
       .getCurrent()
       .pipe(
-        catchError(() => latestReport),
+        catchError((error: unknown) => {
+        if (
+          error instanceof HttpErrorResponse &&
+          (error.status === 401 || error.status === 403)
+        ) {
+          return throwError(() => error);
+        }
+        return latestReport;
+        }),
         finalize(() => this.loading.set(false)),
       )
-      .subscribe((report) => {
+      .subscribe({
+        next: (report) => {
+        if (scope !== this.auth.scopeKey()) return;
         this.report.set(report);
         if (!report) {
           this.error.set(
             historyRequestFailed
-              ? 'Unable to load the shift report. Check that the backend is running and you are signed in.'
+              ? historyRequestError
               : 'No shift report was found for this cashier. Start a shift and try again.',
           );
         }
+        },
+        error: (error: unknown) => {
+        if (scope !== this.auth.scopeKey()) return;
+        this.report.set(null);
+        this.error.set(
+          apiErrorMessage(error, 'Unable to load the shift report. Please try again.'),
+        );
+        },
       });
   }
 
@@ -166,9 +196,12 @@ export class ShiftSummary {
       .pipe(finalize(() => this.ending.set(false)))
       .subscribe({
         next: (endedReport) => this.report.set(endedReport),
-        error: () =>
+        error: (error: unknown) =>
           this.actionError.set(
-            'The shift could not be ended. Check the backend and the shift branch, then try again.',
+            apiErrorMessage(
+              error,
+              'The shift could not be ended. Check the backend and the shift branch, then try again.',
+            ),
           ),
       });
   }
@@ -183,8 +216,10 @@ export class ShiftSummary {
       .pipe(finalize(() => this.starting.set(false)))
       .subscribe({
         next: () => this.load(),
-        error: () =>
-          this.actionError.set('The shift could not be started. Check the backend and try again.'),
+        error: (error: unknown) =>
+          this.actionError.set(
+            apiErrorMessage(error, 'The shift could not be started. Check the backend and try again.'),
+          ),
       });
   }
 

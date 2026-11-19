@@ -12,6 +12,7 @@ import { AuthService } from '../../core/auth.service';
 import { Order, OrderItem } from '../../core/models';
 import { OrderService } from '../../core/order.service';
 import { toDate } from '../../core/loyalty';
+import { apiErrorMessage } from '../../core/api-error-message';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -69,7 +70,10 @@ export class OrderHistory {
   load() {
     this.loading.set(true);
     this.error.set('');
+    this.orders.set([]);
+    this.selectedOrder.set(null);
     const user = this.auth.user();
+    const scope = this.auth.scopeKey();
     if (!this.auth.canViewBranchOrders()) {
       this.error.set('Order history is only available to branch managers and cashiers.');
       this.loading.set(false);
@@ -83,12 +87,19 @@ export class OrderHistory {
 
     this.api.getByBranch(user.branchId).subscribe({
       next: (orders) => {
-        this.orders.set(orders);
+        if (scope !== this.auth.scopeKey()) return;
+        this.orders.set(orders.filter((order) => order.branch?.id === user.branchId));
         this.loading.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
+        if (scope !== this.auth.scopeKey()) return;
+        this.orders.set([]);
+        this.selectedOrder.set(null);
         this.error.set(
-          'Unable to load orders for this branch. Check that the backend is available and try again.',
+          apiErrorMessage(
+            error,
+            'Unable to load orders for this branch. Check that the backend is available and try again.',
+          ),
         );
         this.loading.set(false);
       },

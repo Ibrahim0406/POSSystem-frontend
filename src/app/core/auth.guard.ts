@@ -18,36 +18,42 @@ export const authGuard: CanActivateFn = () => {
 export const landingGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  if (auth.isAdmin()) return router.createUrlTree(['/admin']);
-  if (auth.storeStatus() === 'PENDING' || auth.storeStatus() === 'BLOCKED') {
-    return router.createUrlTree(['/store-status']);
-  }
-  if (auth.canRefund()) return router.createUrlTree(['/cashier']);
-  return router.createUrlTree(['/shift-summary']);
+  return router.createUrlTree([auth.homeRoute()]);
 };
 
 export const storeStatusGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   if (auth.storeStatus() === 'PENDING' || auth.storeStatus() === 'BLOCKED') return true;
-  return inject(Router).createUrlTree(['/']);
+  return inject(Router).createUrlTree([auth.homeRoute()]);
 };
 
 export const branchOrdersGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  return auth.canViewBranchOrders() ? true : inject(Router).createUrlTree(['/shift-summary']);
+  return auth.canViewBranchOrders()
+    ? true
+    : inject(Router).createUrlTree([auth.homeRoute()]);
 };
 
 export const branchCashierGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  return auth.canRefund() ? true : inject(Router).createUrlTree(['/shift-summary']);
+  return auth.canRefund() ? true : inject(Router).createUrlTree([auth.homeRoute()]);
 };
 
 export const adminGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  return auth.isAdmin() ? true : inject(Router).createUrlTree(['/shift-summary']);
+  return auth.isAdmin() ? true : inject(Router).createUrlTree([auth.homeRoute()]);
 };
 
 export const branchOperationsGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  return auth.isAdmin() ? inject(Router).createUrlTree(['/admin']) : true;
+  return auth.canAccessCustomers()
+    ? true
+    : inject(Router).createUrlTree([auth.homeRoute()]);
+};
+
+export const shiftSummaryGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  return auth.canViewShiftSummary()
+    ? true
+    : inject(Router).createUrlTree([auth.homeRoute()]);
 };
