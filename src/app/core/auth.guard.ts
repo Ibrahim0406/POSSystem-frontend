@@ -4,14 +4,32 @@ import { AuthService } from './auth.service';
 
 export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  return auth.isLoggedIn() ? true : inject(Router).createUrlTree(['login']);
+  const router = inject(Router);
+  if (!auth.isLoggedIn()) return router.createUrlTree(['/signup']);
+  if (
+    !auth.isAdmin() &&
+    (auth.storeStatus() === 'PENDING' || auth.storeStatus() === 'BLOCKED')
+  ) {
+    return router.createUrlTree(['/store-status']);
+  }
+  return true;
 };
 
 export const landingGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  if (auth.isAdmin()) return inject(Router).createUrlTree(['/admin']);
-  if (auth.canRefund()) return inject(Router).createUrlTree(['/cashier']);
-  return inject(Router).createUrlTree(['/shift-summary']);
+  const router = inject(Router);
+  if (auth.isAdmin()) return router.createUrlTree(['/admin']);
+  if (auth.storeStatus() === 'PENDING' || auth.storeStatus() === 'BLOCKED') {
+    return router.createUrlTree(['/store-status']);
+  }
+  if (auth.canRefund()) return router.createUrlTree(['/cashier']);
+  return router.createUrlTree(['/shift-summary']);
+};
+
+export const storeStatusGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  if (auth.storeStatus() === 'PENDING' || auth.storeStatus() === 'BLOCKED') return true;
+  return inject(Router).createUrlTree(['/']);
 };
 
 export const branchOrdersGuard: CanActivateFn = () => {

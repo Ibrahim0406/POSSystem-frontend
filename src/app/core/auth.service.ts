@@ -3,10 +3,12 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs';
-import { AuthResponse } from './models';
+import { AuthResponse, SignupRequest, SignupResponse } from './models';
+import { StoreStatus } from './admin.models';
 
 const TOKEN_KEY = 'cms_jwt';
 const USER_KEY = 'cms_user';
+const STORE_STATUS_KEY = 'cms_store_status';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -17,9 +19,15 @@ export class AuthService {
 
   private _token = signal<string | null>(this.getItem(TOKEN_KEY));
   private _user = signal<AuthResponse['user'] | null>(JSON.parse(this.getItem(USER_KEY) ?? 'null'));
+  private _storeStatus = signal<StoreStatus | null>(
+    (this.getItem(STORE_STATUS_KEY) as StoreStatus | null) ??
+      this._user()?.storeStatus ??
+      null,
+  );
 
   readonly token = this._token.asReadonly();
   readonly user = this._user.asReadonly();
+  readonly storeStatus = this._storeStatus.asReadonly();
   readonly isLoggedIn = computed(() => !!this._token());
   readonly canViewBranchOrders = computed(() => {
     const role = this._user()
@@ -43,21 +51,35 @@ export class AuthService {
 
   login(email: string, password: string) {
     return this.http.post<AuthResponse>('/auth/signin', { email, password }).pipe(
-      tap((res) => {
-        this.setItem(TOKEN_KEY, res.jwt);
-        this.setItem(USER_KEY, JSON.stringify(res.user));
-        this._token.set(res.jwt);
-        this._user.set(res.user);
-      }),
+      tap((res) => this.saveAuth(res)),
+    );
+  }
+
+  signup(request: SignupRequest) {
+    return this.http.post<SignupResponse>('/auth/signup', request).pipe(
+      tap((res) => this.saveAuth(res)),
     );
   }
 
   logout() {
     this.removeItem(TOKEN_KEY);
     this.removeItem(USER_KEY);
+    this.removeItem(STORE_STATUS_KEY);
     this._token.set(null);
     this._user.set(null);
+    this._storeStatus.set(null);
     this.router.navigate(['/login']);
+  }
+
+  private saveAuth(response: AuthResponse): void {
+    const storeStatus = response.storeStatus ?? response.user.storeStatus ?? null;
+    this.setItem(TOKEN_KEY, response.jwt);
+    this.setItem(USER_KEY, JSON.stringify(response.user));
+    if (storeStatus) this.setItem(STORE_STATUS_KEY, storeStatus);
+    else this.removeItem(STORE_STATUS_KEY);
+    this._token.set(response.jwt);
+    this._user.set(response.user);
+    this._storeStatus.set(storeStatus);
   }
 
   // SSR-safe localStorage helpers

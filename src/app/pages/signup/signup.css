@@ -1,0 +1,263 @@
+:host {
+  display: block;
+}
+
+.signup-page {
+  min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(ellipse at 10% 3%, oklch(0.94 0.04 255 / 60%), transparent 34%),
+    var(--background);
+}
+
+.page-header {
+  display: flex;
+  max-width: 1080px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 auto 36px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--foreground);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.page-header p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+
+.page-header a:not(.brand) {
+  margin-left: 4px;
+  color: var(--foreground);
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
+
+.signup-card {
+  width: min(100%, 900px);
+  margin: 0 auto;
+  padding: 44px 52px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 8px);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 24px 70px oklch(0.2 0.03 260 / 10%);
+}
+
+.intro {
+  max-width: 620px;
+  margin: 0 auto 36px;
+  text-align: center;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.intro h1 {
+  margin: 0 0 12px;
+  font-size: clamp(1.75rem, 4vw, 2.4rem);
+}
+
+.intro p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.form-section {
+  padding: 28px 0;
+  border-top: 1px solid var(--border);
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.section-heading h2 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+}
+
+.section-heading p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.step-number {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 20px;
+  padding-left: 46px;
+}
+
+.field {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+}
+
+.field-full {
+  grid-column: 1 / -1;
+}
+
+.field label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.field textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.8;
+}
+
+.field input:focus-visible,
+.field textarea:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.field input[aria-invalid='true'],
+.field textarea[aria-invalid='true'] {
+  border-color: var(--destructive);
+}
+
+.field-hint,
+.field-error {
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.field-hint {
+  color: var(--muted-foreground);
+}
+
+.field-error,
+.form-error {
+  color: var(--destructive);
+}
+
+.form-error {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--destructive);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--destructive) 8%, transparent);
+  font-size: 0.9rem;
+}
+
+.form-actions {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.form-actions button {
+  width: min(100%, 360px);
+}
+
+.form-actions p {
+  max-width: 480px;
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .signup-page {
+    padding: 16px;
+  }
+
+  .page-header {
+    margin-bottom: 24px;
+  }
+
+  .signup-card {
+    padding: 30px 22px;
+  }
+
+  .intro {
+    margin-bottom: 24px;
+  }
+
+  .fields-grid {
+    grid-template-columns: 1fr;
+    padding-left: 0;
+  }
+
+  .field-full {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .page-header {
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .page-header p {
+    max-width: 140px;
+    text-align: right;
+  }
+}

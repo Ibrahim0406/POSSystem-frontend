@@ -1,0 +1,62 @@
+import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
+import { AuthService } from './auth.service';
+import { SignupRequest } from './models';
+
+describe('AuthService', () => {
+  let auth: AuthService;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    localStorage.clear();
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    auth = TestBed.inject(AuthService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    http.verify();
+    localStorage.clear();
+  });
+
+  it('sends the owner and store signup payload and saves the returned pending status', () => {
+    const request: SignupRequest = {
+      ownerFullName: 'Vlasnik Prodavnice',
+      ownerEmail: 'vlasnik@example.com',
+      ownerPassword: 'sigurnaLozinka123',
+      ownerPhone: '061123456',
+      storeBrand: 'Moja Prodavnica',
+      storeDescription: 'Maloprodajna prodavnica',
+      storeType: 'Retail',
+      contact: {
+        address: 'Adresa 1',
+        phone: '061123456',
+        email: 'prodavnica@example.com',
+      },
+    };
+
+    auth.signup(request).subscribe();
+
+    const signupRequest = http.expectOne('/auth/signup');
+    expect(signupRequest.request.method).toBe('POST');
+    expect(signupRequest.request.body).toEqual(request);
+    expect('role' in signupRequest.request.body).toBe(false);
+    signupRequest.flush({
+      jwt: 'token',
+      user: {
+        id: 1,
+        fullName: request.ownerFullName,
+        email: request.ownerEmail,
+        role: 'STORE_ADMIN',
+      },
+      storeStatus: 'PENDING',
+    });
+
+    expect(auth.storeStatus()).toBe('PENDING');
+    expect(localStorage.getItem('cms_store_status')).toBe('PENDING');
+  });
+});

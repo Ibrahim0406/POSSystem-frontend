@@ -76,6 +76,7 @@ export class AdminConsole {
   readonly storeStatuses = STORE_STATUSES;
   readonly accountStatuses = ACCOUNT_STATUSES;
   readonly supportStatuses = SUPPORT_STATUSES;
+  readonly isPlatformAdmin = this.auth.isAdmin;
 
   readonly section = signal<AdminSection>('dashboard');
   readonly loading = signal(false);
@@ -353,14 +354,20 @@ export class AdminConsole {
   }
 
   updateStoreStatus(store: AdminStore, status: StoreStatus) {
+    if (!this.auth.isAdmin()) {
+      this.actionFailure('Only a platform administrator can moderate stores.');
+      return;
+    }
     if (status === 'BLOCKED' && !this.confirm(`Reject or block "${store.name}"?`)) return;
     this.runAction(`store:${store.id}`);
     this.api.updateStoreStatus(store.id, status).subscribe({
-      next: (updated) => {
+      next: () => {
         this.stores.update((items) =>
-          items.map((item) => (item.id === updated.id ? updated : item)),
+          items.map((item) => (item.id === store.id ? { ...item, status } : item)),
         );
-        if (this.selectedStore()?.id === updated.id) this.selectedStore.set(updated);
+        if (this.selectedStore()?.id === store.id) {
+          this.selectedStore.update((selected) => (selected ? { ...selected, status } : null));
+        }
         this.actionSuccess('Store status updated.');
       },
       error: () => this.actionFailure('Unable to update the store status.'),

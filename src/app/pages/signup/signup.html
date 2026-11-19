@@ -1,0 +1,256 @@
+<main class="signup-page">
+  <header class="page-header">
+    <a class="brand" routerLink="/" aria-label="POS System home">
+      <span class="brand-mark" aria-hidden="true">P</span>
+      <span>POS System</span>
+    </a>
+    <p>
+      Already have an account?
+      <a routerLink="/login">Sign in</a>
+    </p>
+  </header>
+
+  <section class="signup-card" aria-labelledby="signup-title">
+    <div class="intro">
+      <span class="eyebrow">STORE REGISTRATION</span>
+      <h1 hlmH1 id="signup-title">Get started with POS System</h1>
+      <p hlmMuted>
+        Enter the owner and store details. Your store will remain pending until it is reviewed.
+      </p>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <section class="form-section" aria-labelledby="owner-heading">
+        <div class="section-heading">
+          <span class="step-number" aria-hidden="true">1</span>
+          <div>
+            <h2 hlmH2 id="owner-heading">Owner information</h2>
+            <p hlmMuted>The person who will manage the store account.</p>
+          </div>
+        </div>
+
+        <div class="fields-grid">
+          <div class="field">
+            <label for="owner-full-name">Full name</label>
+            <input
+              id="owner-full-name"
+              type="text"
+              formControlName="ownerFullName"
+              autocomplete="name"
+              placeholder="e.g. Alex Morgan"
+              required
+              [attr.aria-invalid]="hasError('ownerFullName')"
+              [attr.aria-describedby]="
+                hasError('ownerFullName') ? 'owner-full-name-error' : null
+              "
+            />
+            @if (hasError('ownerFullName')) {
+              <span id="owner-full-name-error" class="field-error">Enter the owner's full name.</span>
+            }
+          </div>
+
+          <div class="field">
+            <label for="owner-phone">Owner phone</label>
+            <input
+              id="owner-phone"
+              type="tel"
+              formControlName="ownerPhone"
+              autocomplete="tel"
+              placeholder="+1 555 123 4567"
+              required
+              [attr.aria-invalid]="hasError('ownerPhone')"
+              [attr.aria-describedby]="hasError('ownerPhone') ? 'owner-phone-error' : null"
+            />
+            @if (hasError('ownerPhone')) {
+              <span id="owner-phone-error" class="field-error">Enter the owner's phone number.</span>
+            }
+          </div>
+
+          <div class="field">
+            <label for="owner-email">Owner email</label>
+            <input
+              id="owner-email"
+              type="email"
+              formControlName="ownerEmail"
+              autocomplete="email"
+              placeholder="name@example.com"
+              required
+              [attr.aria-invalid]="hasError('ownerEmail')"
+              [attr.aria-describedby]="hasError('ownerEmail') ? 'owner-email-error' : null"
+            />
+            @if (hasError('ownerEmail')) {
+              <span id="owner-email-error" class="field-error">Enter a valid email address.</span>
+            }
+          </div>
+
+          <div class="field">
+            <label for="owner-password">Password</label>
+            <input
+              id="owner-password"
+              type="password"
+              formControlName="ownerPassword"
+              autocomplete="new-password"
+              placeholder="Create a password"
+              required
+              [attr.aria-invalid]="hasError('ownerPassword')"
+              [attr.aria-describedby]="
+                hasError('ownerPassword')
+                  ? 'owner-password-hint owner-password-error'
+                  : 'owner-password-hint'
+              "
+            />
+            <span id="owner-password-hint" class="field-hint">
+              Choose a password you can remember and keep secure.
+            </span>
+            @if (hasError('ownerPassword')) {
+              <span id="owner-password-error" class="field-error">Enter a password.</span>
+            }
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section" aria-labelledby="store-heading">
+        <div class="section-heading">
+          <span class="step-number" aria-hidden="true">2</span>
+          <div>
+            <h2 hlmH2 id="store-heading">Store details</h2>
+            <p hlmMuted>Basic information about your business.</p>
+          </div>
+        </div>
+
+        <div class="fields-grid">
+          <div class="field">
+            <label for="store-brand">Store name</label>
+            <input
+              id="store-brand"
+              type="text"
+              formControlName="storeBrand"
+              autocomplete="organization"
+              placeholder="e.g. My Store"
+              required
+              [attr.aria-invalid]="hasError('storeBrand')"
+              [attr.aria-describedby]="hasError('storeBrand') ? 'store-brand-error' : null"
+            />
+            @if (hasError('storeBrand')) {
+              <span id="store-brand-error" class="field-error">Enter a store name.</span>
+            }
+          </div>
+
+          <div class="field">
+            <label for="store-type">Store type</label>
+            <input
+              id="store-type"
+              type="text"
+              formControlName="storeType"
+              placeholder="Npr. Retail"
+              required
+              [attr.aria-invalid]="hasError('storeType')"
+              [attr.aria-describedby]="hasError('storeType') ? 'store-type-error' : null"
+            />
+            @if (hasError('storeType')) {
+              <span id="store-type-error" class="field-error">Enter a store type.</span>
+            }
+          </div>
+
+          <div class="field field-full">
+            <label for="store-description">Store description</label>
+            <textarea
+              id="store-description"
+              formControlName="storeDescription"
+              rows="3"
+              placeholder="Briefly describe what your store sells or does"
+              required
+              [attr.aria-invalid]="hasError('storeDescription')"
+              [attr.aria-describedby]="
+                hasError('storeDescription') ? 'store-description-error' : null
+              "
+            ></textarea>
+            @if (hasError('storeDescription')) {
+              <span id="store-description-error" class="field-error">Enter a store description.</span>
+            }
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section" formGroupName="contact" aria-labelledby="contact-heading">
+        <div class="section-heading">
+          <span class="step-number" aria-hidden="true">3</span>
+          <div>
+            <h2 hlmH2 id="contact-heading">Store contact details</h2>
+            <p hlmMuted>Contact information for your store.</p>
+          </div>
+        </div>
+
+        <div class="fields-grid">
+          <div class="field field-full">
+            <label for="store-address">Address</label>
+            <input
+              id="store-address"
+              type="text"
+              formControlName="address"
+              autocomplete="street-address"
+              placeholder="Street address, city"
+              required
+              [attr.aria-invalid]="hasError('contact.address')"
+              [attr.aria-describedby]="
+                hasError('contact.address') ? 'store-address-error' : null
+              "
+            />
+            @if (hasError('contact.address')) {
+              <span id="store-address-error" class="field-error">Enter the store address.</span>
+            }
+          </div>
+
+          <div class="field">
+            <label for="store-phone">Store phone</label>
+            <input
+              id="store-phone"
+              type="tel"
+              formControlName="phone"
+              autocomplete="tel"
+              placeholder="+1 555 123 4567"
+              required
+              [attr.aria-invalid]="hasError('contact.phone')"
+              [attr.aria-describedby]="hasError('contact.phone') ? 'store-phone-error' : null"
+            />
+            @if (hasError('contact.phone')) {
+              <span id="store-phone-error" class="field-error">Enter the store phone number.</span>
+            }
+          </div>
+
+          <div class="field">
+            <label for="store-email">Store email</label>
+            <input
+              id="store-email"
+              type="email"
+              formControlName="email"
+              autocomplete="email"
+              placeholder="store@example.com"
+              required
+              [attr.aria-invalid]="hasError('contact.email')"
+              [attr.aria-describedby]="hasError('contact.email') ? 'store-email-error' : null"
+            />
+            @if (hasError('contact.email')) {
+              <span id="store-email-error" class="field-error">
+                Enter a valid email address.
+              </span>
+            }
+          </div>
+        </div>
+      </section>
+
+      @if (error()) {
+        <p class="form-error" role="alert">{{ error() }}</p>
+      }
+
+      <div class="form-actions">
+        <button hlmBtn type="submit" [disabled]="loading()">
+          {{ loading() ? 'Creating your account…' : 'Register owner and store' }}
+        </button>
+        <p hlmMuted>
+          By submitting, you agree that your store will be reviewed before activation.
+        </p>
+      </div>
+    </form>
+  </section>
+</main>
