@@ -60,7 +60,7 @@ export class Signup {
     this.auth.signup(this.form.getRawValue()).subscribe({
       next: () => {
         this.loading.set(false);
-        this.router.navigate(['/']);
+        this.router.navigate(['/store-status']);
       },
       error: (err: { status: number }) => {
         this.loading.set(false);

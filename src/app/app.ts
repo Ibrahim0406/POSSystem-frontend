@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from './core/auth.service';
@@ -27,7 +27,15 @@ import { HlmDropdownMenuTrigger } from '@spartan-ng/helm/dropdown-menu/src/lib/h
 export class App {
   auth = inject(AuthService);
   canViewBranchOrders = this.auth.canViewBranchOrders;
+  canViewShiftSummary = this.auth.canViewShiftSummary;
   canRefund = this.auth.canRefund;
+  canAccessCustomers = this.auth.canAccessCustomers;
   isAdmin = this.auth.isAdmin;
+  canOpenStoreDashboard = computed(
+    () =>
+      this.auth.role() === 'STORE_ADMIN' ||
+      (this.auth.role() === 'STORE_MANAGER' && this.auth.user()?.storeId != null) ||
+      (this.auth.role() === 'BRANCH_MANAGER' && this.auth.user()?.branchId != null),
+  );
   protected readonly title = signal('POSSystem-frontend');
 }

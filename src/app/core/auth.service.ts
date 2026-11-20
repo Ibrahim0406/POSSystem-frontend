@@ -29,24 +29,56 @@ export class AuthService {
   readonly user = this._user.asReadonly();
   readonly storeStatus = this._storeStatus.asReadonly();
   readonly isLoggedIn = computed(() => !!this._token());
+  readonly role = computed(
+    () => this._user()?.role.trim().toUpperCase().replace(/^ROLE_/, '') ?? null,
+  );
+  readonly scopeKey = computed(() => {
+    const user = this._user();
+    return user
+      ? `${user.id}:${user.role}:${user.storeId ?? ''}:${user.branchId ?? ''}:${this._storeStatus() ?? ''}`
+      : 'anonymous';
+  });
+  readonly canAccessCustomers = computed(() => {
+    const user = this._user();
+    const role = this.role();
+    return (
+      role === 'STORE_ADMIN' ||
+      (role === 'STORE_MANAGER' && user?.storeId != null) ||
+      ((role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER') && user?.branchId != null)
+    );
+  });
+  readonly canViewShiftSummary = computed(() => {
+    const role = this.role();
+    return (
+      (role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER') &&
+      this._user()?.branchId != null
+    );
+  });
   readonly canViewBranchOrders = computed(() => {
-    const role = this._user()
-      ?.role.trim()
-      .toUpperCase()
-      .replace(/^ROLE_/, '');
-    return role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER';
+    return this.canViewShiftSummary();
   });
   readonly canRefund = computed(() => {
     const user = this._user();
-    const role = user?.role.trim().toUpperCase().replace(/^ROLE_/, '');
-    return role === 'BRANCH_CASHIER' && user?.branchId != null;
+    return this.role() === 'BRANCH_CASHIER' && user?.branchId != null;
   });
   readonly isAdmin = computed(() => {
-    const role = this._user()
-      ?.role.trim()
-      .toUpperCase()
-      .replace(/^ROLE_/, '');
-    return role === 'ADMIN';
+    return this.role() === 'ADMIN';
+  });
+  readonly homeRoute = computed(() => {
+    if (this.isAdmin()) return '/admin';
+    if (this._storeStatus() === 'PENDING' || this._storeStatus() === 'BLOCKED') {
+      return '/store-status';
+    }
+    if (
+      this.role() === 'STORE_ADMIN' ||
+      (this.role() === 'STORE_MANAGER' && this._user()?.storeId != null)
+    ) {
+      return '/store-dashboard';
+    }
+    if (this.canRefund()) return '/cashier';
+    if (this.canViewShiftSummary()) return '/shift-summary';
+    if (this.canAccessCustomers()) return '/customers';
+    return '/account-access';
   });
 
   login(email: string, password: string) {

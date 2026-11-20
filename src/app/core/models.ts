@@ -98,6 +98,21 @@ export interface ShiftReport {
   refunds?: ShiftRefund[] | null;
 }
 
+export interface Refund {
+  id: number;
+  amount: number;
+  reason?: string | null;
+  orderId?: number | null;
+  order?: { id: number } | null;
+  branchId?: number | null;
+}
+
+export interface RefundRequest {
+  orderId: number;
+  amount: number;
+  reason: string;
+}
+
 export interface AuthResponse {
   jwt: string;
   message?: string;

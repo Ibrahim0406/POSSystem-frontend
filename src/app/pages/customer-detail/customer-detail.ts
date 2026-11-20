@@ -2,12 +2,14 @@ import { Component, computed, inject, input, numberAttribute, signal } from '@an
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
-import { catchError, forkJoin, of, switchMap, tap } from 'rxjs';
+import { EMPTY, catchError, combineLatest, finalize, forkJoin, switchMap, tap } from 'rxjs';
 import { CustomerService } from '../../core/customer.service';
 import { Customer, Order } from '../../core/models';
 import { SPEND_PER_POINT, calcLoyaltyPoints, toDate } from '../../core/loyalty';
 import { CustomerForm } from '../../shared/customer-form';
 import { HlmButton } from '@spartan-ng/helm/button/src';
+import { AuthService } from '../../core/auth.service';
+import { apiErrorMessage } from '../../core/api-error-message';
 
 @Component({
   selector: 'app-customer-detail',
@@ -18,6 +20,7 @@ import { HlmButton } from '@spartan-ng/helm/button/src';
 export class CustomerDetail {
   private api = inject(CustomerService);
   private router = inject(Router);
+  private auth = inject(AuthService);
 
   /** Provided by /customers/:id through withComponentInputBinding. */
   id = input.required({ transform: numberAttribute });
@@ -44,32 +47,36 @@ export class CustomerDetail {
 
   constructor() {
     // The component is reused across customer routes, so reload whenever :id changes.
-    toObservable(this.id)
+    combineLatest([toObservable(this.id), toObservable(this.auth.scopeKey)])
       .pipe(
         tap(() => {
           this.loading.set(true);
           this.error.set('');
+          this.customer.set(null);
+          this.orders.set([]);
           this.expanded.set(new Set());
           this.editing.set(false);
         }),
-        switchMap((id) =>
+        switchMap(([id]) =>
           forkJoin({ customer: this.api.getById(id), orders: this.api.getOrders(id) }).pipe(
-            catchError(() => of(null)),
+            tap((res) => {
+              this.customer.set(res.customer);
+              this.orders.set(res.orders);
+            }),
+            catchError((error: unknown) => {
+              this.customer.set(null);
+              this.orders.set([]);
+              this.error.set(
+                apiErrorMessage(error, 'Customer data could not be loaded. Please try again.'),
+              );
+              return EMPTY;
+            }),
+            finalize(() => this.loading.set(false)),
           ),
         ),
         takeUntilDestroyed(),
       )
-      .subscribe((res) => {
-        if (res) {
-          this.customer.set(res.customer);
-          this.orders.set(res.orders);
-        } else {
-          this.customer.set(null);
-          this.orders.set([]);
-          this.error.set('Customer not found or customer data could not be loaded.');
-        }
-        this.loading.set(false);
-      });
+      .subscribe();
   }
 
   toggle(orderId: number) {
@@ -88,8 +95,10 @@ export class CustomerDetail {
     if (!c?.id || !confirm(`Delete customer "${c.fullName}"?`)) return;
     this.api.delete(c.id).subscribe({
       next: () => this.router.navigate(['/customers']),
-      error: () =>
-        this.error.set('Could not delete the customer. They may have linked orders.'),
+      error: (error: unknown) =>
+        this.error.set(
+          apiErrorMessage(error, 'Could not delete the customer. They may have linked orders.'),
+        ),
     });
   }
 }

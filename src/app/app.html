@@ -1,5 +1,6 @@
 @if (
   auth.isLoggedIn() &&
+  (isAdmin() || canOpenStoreDashboard() || canAccessCustomers() || canViewShiftSummary()) &&
   (isAdmin() || auth.storeStatus() === null || auth.storeStatus() === 'ACTIVE')
 ) {
   <div class="app-shell">
@@ -29,14 +30,26 @@
                 Admin console
               </a>
             } @else {
-              <a
-                hlmDropdownMenuItem
-                routerLink="/shift-summary"
-                routerLinkActive="current"
-                [routerLinkActiveOptions]="{ exact: true }"
-              >
-                Shift summary
-              </a>
+              @if (canOpenStoreDashboard()) {
+                <a
+                  hlmDropdownMenuItem
+                  routerLink="/store-dashboard"
+                  routerLinkActive="current"
+                  [routerLinkActiveOptions]="{ exact: true }"
+                >
+                  Store workspace
+                </a>
+              }
+              @if (canViewShiftSummary()) {
+                <a
+                  hlmDropdownMenuItem
+                  routerLink="/shift-summary"
+                  routerLinkActive="current"
+                  [routerLinkActiveOptions]="{ exact: true }"
+                >
+                  Shift summary
+                </a>
+              }
               @if (canViewBranchOrders()) {
                 @if (canRefund()) {
                   <a
@@ -62,18 +75,17 @@
                   </a>
                 }
               }
-              <a hlmDropdownMenuItem routerLink="/customers" routerLinkActive="current">
-                Customers
-              </a>
+              @if (canAccessCustomers()) {
+                <a hlmDropdownMenuItem routerLink="/customers" routerLinkActive="current">
+                  Customers
+                </a>
+              }
             }
             <div hlmDropdownMenuSeparator></div>
             <button hlmDropdownMenuItem (click)="auth.logout()">Sign out</button>
           </div>
         </ng-template>
-        <a
-          [routerLink]="isAdmin() ? '/admin' : canRefund() ? '/cashier' : '/shift-summary'"
-          class="brand"
-        >POS System</a>
+        <a [routerLink]="auth.homeRoute()" class="brand">POS System</a>
       </div>
       <div class="right">
         <span class="muted">{{ auth.user()?.fullName }}</span>

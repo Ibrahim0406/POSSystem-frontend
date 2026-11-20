@@ -7,6 +7,7 @@ import { CustomerService } from '../../core/customer.service';
 import { Customer, PaymentType, Product } from '../../core/models';
 import { OrderService } from '../../core/order.service';
 import { ProductService } from '../../core/product.service';
+import { apiErrorMessage } from '../../core/api-error-message';
 
 interface CartItem {
   product: Product;
@@ -70,7 +71,11 @@ export class CashierDashboard {
   }
 
   loadProducts() {
-    const branchId = this.auth.user()?.branchId;
+    const user = this.auth.user();
+    const branchId = user?.branchId;
+    const scope = this.auth.scopeKey();
+    this.products.set([]);
+    this.cart.set([]);
     if (branchId == null) {
       this.error.set('Your account is not assigned to a branch. Please sign in again.');
       this.loadingProducts.set(false);
@@ -79,32 +84,51 @@ export class CashierDashboard {
 
     this.branches.getById(branchId).subscribe({
       next: (branch) => {
+        if (scope !== this.auth.scopeKey()) return;
+        if (user?.storeId != null && branch.storeId !== user.storeId) {
+          this.error.set('The branch does not belong to your assigned store.');
+          this.loadingProducts.set(false);
+          return;
+        }
         this.productsApi.getByStore(branch.storeId).subscribe({
           next: (products) => {
+            if (scope !== this.auth.scopeKey()) return;
             this.products.set(products);
             this.loadingProducts.set(false);
           },
-          error: () => {
-            this.error.set('Products could not be loaded. Please try again.');
+          error: (error: unknown) => {
+            if (scope !== this.auth.scopeKey()) return;
+            this.products.set([]);
+            this.error.set(apiErrorMessage(error, 'Products could not be loaded. Please try again.'));
             this.loadingProducts.set(false);
           },
         });
       },
-      error: () => {
-        this.error.set('Branch details could not be loaded. Please try again.');
+      error: (error: unknown) => {
+        if (scope !== this.auth.scopeKey()) return;
+        this.products.set([]);
+        this.error.set(
+          apiErrorMessage(error, 'Branch details could not be loaded. Please try again.'),
+        );
         this.loadingProducts.set(false);
       },
     });
   }
 
   loadCustomers() {
+    const scope = this.auth.scopeKey();
+    this.customers.set([]);
+    this.selectedCustomer.set(null);
     this.customersApi.getAll().subscribe({
       next: (customers) => {
+        if (scope !== this.auth.scopeKey()) return;
         this.customers.set(customers);
         this.loadingCustomers.set(false);
       },
-      error: () => {
-        this.error.set('Customers could not be loaded. Please try again.');
+      error: (error: unknown) => {
+        if (scope !== this.auth.scopeKey()) return;
+        this.customers.set([]);
+        this.error.set(apiErrorMessage(error, 'Customers could not be loaded. Please try again.'));
         this.loadingCustomers.set(false);
       },
     });
@@ -180,10 +204,15 @@ export class CashierDashboard {
 
   proceedPayment() {
     if (!this.cart().length || this.discountPercent() > 0 || this.submitting()) return;
+    if (!this.auth.canRefund()) {
+      this.error.set('Order creation is only available to cashiers assigned to a branch.');
+      return;
+    }
 
     this.error.set('');
     this.success.set('');
     this.submitting.set(true);
+    const scope = this.auth.scopeKey();
     this.ordersApi
       .createOrder({
         customer: this.selectedCustomer()?.id ? { id: this.selectedCustomer()!.id! } : null,
@@ -196,15 +225,22 @@ export class CashierDashboard {
       })
       .subscribe({
         next: (order) => {
+          if (scope !== this.auth.scopeKey()) return;
           this.submitting.set(false);
           this.success.set(`Order #${order.id} created successfully.`);
           this.cart.set([]);
           this.discountPercent.set(0);
           this.note.set('');
         },
-        error: () => {
+        error: (error: unknown) => {
+          if (scope !== this.auth.scopeKey()) return;
           this.submitting.set(false);
-          this.error.set('The order could not be created. Please check your connection and retry.');
+          this.error.set(
+            apiErrorMessage(
+              error,
+              'The order could not be created. Please check your connection and retry.',
+            ),
+          );
         },
       });
   }

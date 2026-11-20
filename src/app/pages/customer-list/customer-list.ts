@@ -1,14 +1,15 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { catchError, debounceTime, distinctUntilChanged, of, switchMap, tap } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { EMPTY, catchError, distinctUntilChanged, finalize, switchMap, tap, timer } from 'rxjs';
 import { CustomerService } from '../../core/customer.service';
 import { Customer } from '../../core/models';
 import { toDate } from '../../core/loyalty';
 import { CustomerForm } from '../../shared/customer-form';
 import { HlmButton } from '@spartan-ng/helm/button/src';
 import { AuthService } from '../../core/auth.service';
+import { apiErrorMessage } from '../../core/api-error-message';
 
 @Component({
   selector: 'app-customer-list',
@@ -26,44 +27,47 @@ export class CustomerList {
   error = signal('');
   showForm = signal(false);
   canCreateCustomer = computed(() => {
-    const role = this.auth.user()?.role.trim().toUpperCase().replace(/^ROLE_/, '');
-    return [
-      'ADMIN',
-      'STORE_ADMIN',
-      'MANAGER',
-      'STORE_MANAGER',
-      'BRANCH_MANAGER',
-      'BRANCH_CASHIER',
-    ].includes(role ?? '');
+    return this.auth.canAccessCustomers();
   });
   /** True when a customer is open in the child route, showing the two-column layout. */
   hasDetail = signal(false);
 
   // Reload customers when the query changes or the service reports a customer mutation.
-  private trigger = computed(() => ({ q: this.query().trim(), r: this.api.changed() }));
+  private trigger = computed(() => ({
+    q: this.query().trim(),
+    r: this.api.changed(),
+    scope: this.auth.scopeKey(),
+  }));
+  customers = signal<Customer[]>([]);
 
-  customers = toSignal(
-    toObservable(this.trigger).pipe(
-      debounceTime(250),
-      distinctUntilChanged((a, b) => a.q === b.q && a.r === b.r),
-      tap(() => {
-        this.loading.set(true);
-        this.error.set('');
-      }),
-      switchMap(({ q }) =>
-        (q ? this.api.search(q) : this.api.getAll()).pipe(
-          catchError(() => {
-            this.error.set(
-              'Unable to load customers. Check that the backend is running and try again.',
-            );
-            return of([] as Customer[]);
-          }),
-        ),
-      ),
-      tap(() => this.loading.set(false)),
-    ),
-    { initialValue: [] as Customer[] },
-  );
+  constructor() {
+    toObservable(this.trigger)
+      .pipe(
+        distinctUntilChanged((a, b) => a.q === b.q && a.r === b.r && a.scope === b.scope),
+        switchMap(({ q }) => {
+          this.customers.set([]);
+          this.loading.set(true);
+          this.error.set('');
+          return timer(250).pipe(
+            switchMap(() => (q ? this.api.search(q) : this.api.getAll())),
+            tap((customers) => this.customers.set(customers)),
+            catchError((error: unknown) => {
+              this.customers.set([]);
+              this.error.set(
+                apiErrorMessage(
+                  error,
+                  'Unable to load customers. Check the backend and try again.',
+                ),
+              );
+              return EMPTY;
+            }),
+            finalize(() => this.loading.set(false)),
+          );
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe();
+  }
 
   date = toDate;
 

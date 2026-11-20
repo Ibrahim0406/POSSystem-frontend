@@ -3,6 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Customer } from '../core/models';
 import { CustomerService } from '../core/customer.service';
 import { HlmButton } from '@spartan-ng/helm/button/src';
+import { apiErrorMessage } from '../core/api-error-message';
 @Component({
   selector: 'app-customer-form',
   imports: [ReactiveFormsModule, HlmButton],
@@ -173,12 +174,15 @@ export class CustomerForm {
         this.saving.set(false);
         this.saved.emit(c);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.saving.set(false);
         this.error.set(
-          this.language() === 'en'
-            ? 'Could not save the customer. Please try again.'
-            : 'Spremanje nije uspjelo. Pokušajte ponovo.',
+          apiErrorMessage(
+            error,
+            this.language() === 'en'
+              ? 'Could not save the customer. Please try again.'
+              : 'Spremanje nije uspjelo. Pokušajte ponovo.',
+          ),
         );
       },
     });

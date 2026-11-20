@@ -1,0 +1,874 @@
+<section class="workspace">
+  <header class="workspace-header">
+    <div>
+      <p class="eyebrow">Store workspace</p>
+      <h1>{{ store()?.brand || 'Store dashboard' }}</h1>
+      <p class="muted">
+        @if (store()) {
+          {{ store()?.description || 'Manage your store operations and branches.' }}
+        } @else {
+          Manage your store operations and branches.
+        }
+      </p>
+    </div>
+    @if (branches().length > 0) {
+      <label class="branch-picker">
+        <span>Branch</span>
+        <select
+          [value]="selectedBranchId() ?? ''"
+          (change)="selectBranch($any($event.target).value)"
+          [disabled]="isBranchManager()"
+        >
+          @for (branch of branches(); track branch.id) {
+            <option [value]="branch.id">{{ branch.name }}</option>
+          }
+        </select>
+      </label>
+    }
+  </header>
+
+  @if (actionError()) {
+    <div class="alert" role="alert">{{ actionError() }}</div>
+  }
+  @if (notice()) {
+    <div class="notice" role="status">{{ notice() }}</div>
+  }
+
+  <nav class="section-nav" aria-label="Store workspace sections">
+    <button
+      type="button"
+      [class.active]="section() === 'overview'"
+      (click)="selectSection('overview')"
+    >
+      Overview
+    </button>
+    @if (canManageBranches()) {
+      <button
+        type="button"
+        [class.active]="section() === 'branches'"
+        (click)="selectSection('branches')"
+      >
+        Branches
+      </button>
+    }
+    @if (canManageCatalog()) {
+      <button
+        type="button"
+        [class.active]="section() === 'catalog'"
+        (click)="selectSection('catalog')"
+      >
+        Products & categories
+      </button>
+    }
+    @if (canManageInventory()) {
+      <button
+        type="button"
+        [class.active]="section() === 'inventory'"
+        (click)="selectSection('inventory')"
+      >
+        Inventory
+      </button>
+    }
+    @if (canManageEmployees()) {
+      <button
+        type="button"
+        [class.active]="section() === 'employees'"
+        (click)="selectSection('employees')"
+      >
+        Employees
+      </button>
+    }
+    <button type="button" [class.active]="section() === 'orders'" (click)="selectSection('orders')">
+      Orders
+    </button>
+    <button
+      type="button"
+      [class.active]="section() === 'refunds'"
+      (click)="selectSection('refunds')"
+    >
+      Refunds
+    </button>
+    <button
+      type="button"
+      [class.active]="section() === 'reports'"
+      (click)="selectSection('reports')"
+    >
+      Shifts & reports
+    </button>
+  </nav>
+
+  @if (loading()) {
+    <div class="empty" role="status">Loading store data…</div>
+  } @else {
+    @if (section() === 'overview') {
+      <section class="overview-grid" aria-label="Store overview">
+        <article class="metric">
+          <span class="muted">Branches</span>
+          <strong>{{ branches().length }}</strong>
+        </article>
+        @if (canManageCatalog()) {
+          <article class="metric">
+            <span class="muted">Products</span>
+            <strong>{{ products().length }}</strong>
+          </article>
+        }
+        <article class="metric">
+          <span class="muted">Employees</span>
+          <strong>{{ employees().length }}</strong>
+        </article>
+        <article class="metric">
+          <span class="muted">Orders in selected branch</span>
+          <strong>{{ orders().length }}</strong>
+        </article>
+        <article class="metric">
+          <span class="muted">Refunds in selected branch</span>
+          <strong>{{ refunds().length }}</strong>
+        </article>
+        @if (!branches().length) {
+          <article class="empty callout">
+            <h2>No branches yet</h2>
+            <p>Create your first branch to manage stock and branch activity.</p>
+            @if (canCreateBranch()) {
+              <button
+                type="button"
+                class="primary"
+                (click)="selectSection('branches'); openCreateBranch()"
+              >
+                Create branch
+              </button>
+            }
+          </article>
+        }
+      </section>
+    }
+
+    @if (section() === 'branches' && canManageBranches()) {
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Branches</h2>
+            <p class="muted">Branches are automatically attached to your store.</p>
+          </div>
+          @if (canCreateBranch()) {
+            <button type="button" class="primary" (click)="openCreateBranch()">Add branch</button>
+          }
+        </div>
+
+        @if (showBranchForm()) {
+          <form class="editor" (submit)="saveBranch($event)">
+            <h3>{{ branchEditingId() ? 'Edit branch' : 'New branch' }}</h3>
+            <div class="form-grid">
+              <label
+                >Branch name<input
+                  required
+                  [value]="branchDraft().name"
+                  (input)="updateBranchField('name', $any($event.target).value)"
+              /></label>
+              <label
+                >Address<input
+                  required
+                  [value]="branchDraft().address"
+                  (input)="updateBranchField('address', $any($event.target).value)"
+              /></label>
+              <label
+                >Phone<input
+                  required
+                  [value]="branchDraft().phoneNumber"
+                  (input)="updateBranchField('phoneNumber', $any($event.target).value)"
+              /></label>
+              <label
+                >Email<input
+                  required
+                  type="email"
+                  [value]="branchDraft().email"
+                  (input)="updateBranchField('email', $any($event.target).value)"
+              /></label>
+              <label
+                >Opens<input
+                  required
+                  type="time"
+                  [value]="branchDraft().openTime"
+                  (input)="updateBranchField('openTime', $any($event.target).value)"
+              /></label>
+              <label
+                >Closes<input
+                  required
+                  type="time"
+                  [value]="branchDraft().closeTime"
+                  (input)="updateBranchField('closeTime', $any($event.target).value)"
+              /></label>
+            </div>
+            <fieldset class="days">
+              <legend>Working days</legend>
+              @for (day of workingDays; track day) {
+                <label class="check">
+                  <input
+                    type="checkbox"
+                    [checked]="branchDraft().workingDays.includes(day)"
+                    (change)="toggleWorkingDay(day, $any($event.target).checked)"
+                  />
+                  {{ day }}
+                </label>
+              }
+            </fieldset>
+            <div class="actions">
+              <button type="button" class="secondary" (click)="showBranchForm.set(false)">
+                Cancel
+              </button>
+              <button type="submit" class="primary" [disabled]="actionBusy()">
+                {{ actionBusy() ? 'Saving…' : 'Save branch' }}
+              </button>
+            </div>
+          </form>
+        }
+
+        @if (!branches().length && !showBranchForm()) {
+          <div class="empty">No branches found.</div>
+        } @else {
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Address</th>
+                  <th>Phone</th>
+                  <th>Working days</th>
+                  <th>Hours</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (branch of branches(); track branch.id) {
+                  <tr>
+                    <td>{{ branch.name }}</td>
+                    <td>{{ branch.address }}</td>
+                    <td>{{ branch.phoneNumber }}</td>
+                    <td>{{ branch.workingDays.join(', ') }}</td>
+                    <td>{{ timeInput(branch.openTime) }}–{{ timeInput(branch.closeTime) }}</td>
+                    <td class="row-actions">
+                      <button type="button" class="secondary small" (click)="editBranch(branch)">
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        class="danger small"
+                        (click)="requestDelete({ type: 'branch', id: branch.id })"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+
+    @if (section() === 'catalog' && canManageCatalog()) {
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Products & categories</h2>
+            <p class="muted">Catalog data is scoped to the current store.</p>
+          </div>
+          <button type="button" class="primary" (click)="openCreateProduct()">Add product</button>
+        </div>
+
+        <div class="catalog-grid">
+          <section class="subpanel">
+            <div class="panel-heading compact">
+              <h3>Categories</h3>
+              <button type="button" class="secondary" (click)="openCreateCategory()">
+                Add category
+              </button>
+            </div>
+            <p class="warning">
+              The backend category response currently omits category IDs. Categories can be listed
+              and created, but editing/deleting them and selecting them by name is unavailable until
+              the backend returns IDs.
+            </p>
+            @if (showCategoryForm()) {
+              <form class="inline-editor" (submit)="saveCategory($event)">
+                <label>
+                  Category name
+                  <input
+                    required
+                    [value]="categoryName()"
+                    (input)="categoryName.set($any($event.target).value)"
+                  />
+                </label>
+                <div class="actions">
+                  <button type="button" class="secondary" (click)="showCategoryForm.set(false)">
+                    Cancel
+                  </button>
+                  <button type="submit" class="primary" [disabled]="actionBusy()">Save</button>
+                </div>
+              </form>
+            }
+            @if (!categories().length) {
+              <p class="muted">No categories found.</p>
+            } @else {
+              <ul class="simple-list">
+                @for (category of categories(); track $index) {
+                  <li>
+                    <span>{{ category.name }}</span>
+                    @if (category.id) {
+                      <span class="row-actions">
+                        <button
+                          type="button"
+                          class="secondary small"
+                          (click)="editCategory(category)"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          class="danger small"
+                          (click)="requestDelete({ type: 'category', id: category.id! })"
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    } @else {
+                      <span class="muted small-text">ID unavailable</span>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </section>
+        </div>
+
+        @if (showProductForm()) {
+          <form class="editor" (submit)="saveProduct($event)">
+            <h3>{{ productEditingId() ? 'Edit product' : 'New product' }}</h3>
+            <div class="form-grid">
+              <label
+                >SKU<input
+                  required
+                  [value]="productDraft().sku"
+                  (input)="updateProductField('sku', $any($event.target).value)"
+              /></label>
+              <label
+                >Name<input
+                  required
+                  [value]="productDraft().name"
+                  (input)="updateProductField('name', $any($event.target).value)"
+              /></label>
+              <label
+                >Retail price<input
+                  required
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [value]="productDraft().sellingPrice"
+                  (input)="updateProductField('sellingPrice', $any($event.target).value)"
+              /></label>
+              <label
+                >MRP<input
+                  required
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [value]="productDraft().mrp"
+                  (input)="updateProductField('mrp', $any($event.target).value)"
+              /></label>
+              <label
+                >Brand<input
+                  [value]="productDraft().brand"
+                  (input)="updateProductField('brand', $any($event.target).value)"
+              /></label>
+              <label
+                >Image URL<input
+                  type="url"
+                  [value]="productDraft().imageUrl"
+                  (input)="updateProductField('imageUrl', $any($event.target).value)"
+              /></label>
+              <label class="wide"
+                >Description<textarea
+                  rows="2"
+                  [value]="productDraft().description"
+                  (input)="updateProductField('description', $any($event.target).value)"
+                ></textarea>
+              </label>
+              <label class="wide">
+                Category ID
+                <input
+                  type="number"
+                  min="1"
+                  [required]="!productEditingId()"
+                  [value]="productDraft().categoryId"
+                  (input)="updateProductField('categoryId', $any($event.target).value)"
+                />
+              </label>
+            </div>
+            <p class="muted">
+              @if (productEditingId()) {
+                Leave Category ID empty to keep the current category.
+              } @else {
+                Enter an existing category ID; the current category list does not include IDs.
+              }
+            </p>
+            <div class="actions">
+              <button type="button" class="secondary" (click)="showProductForm.set(false)">
+                Cancel
+              </button>
+              <button type="submit" class="primary" [disabled]="actionBusy()">Save product</button>
+            </div>
+          </form>
+        }
+
+        @if (!products().length) {
+          <div class="empty">No products found.</div>
+        } @else {
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>SKU</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (product of products(); track product.id) {
+                  <tr>
+                    <td>
+                      <strong>{{ product.name }}</strong
+                      ><span class="cell-subtitle">{{ product.brand || '' }}</span>
+                    </td>
+                    <td>{{ product.sku }}</td>
+                    <td>{{ product.category?.name || '—' }}</td>
+                    <td>{{ product.sellingPrice | currency: 'BAM' }}</td>
+                    <td class="row-actions">
+                      <button type="button" class="secondary small" (click)="editProduct(product)">
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        class="danger small"
+                        (click)="requestDelete({ type: 'product', id: product.id })"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+
+    @if (section() === 'inventory' && canManageInventory()) {
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Inventory</h2>
+            <p class="muted">
+              Stock is shown for the selected branch. You can adjust quantities only.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="primary"
+            [disabled]="!selectedBranchId()"
+            (click)="openCreateInventory()"
+          >
+            Add stock item
+          </button>
+        </div>
+        @if (branchLoading()) {
+          <div class="empty">Loading branch inventory…</div>
+        } @else if (!inventory().length) {
+          <div class="empty">No inventory entries for this branch.</div>
+        } @else {
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>SKU</th>
+                  <th>Quantity</th>
+                  <th>Last updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of inventory(); track entry.id) {
+                  <tr>
+                    <td>{{ entry.product?.name || productName(entry.productId) }}</td>
+                    <td>{{ entry.product?.sku || productSku(entry.productId) }}</td>
+                    <td>
+                      <input
+                        class="quantity"
+                        type="number"
+                        min="0"
+                        step="1"
+                        [value]="inventoryDrafts()[entry.id] ?? entry.quantity"
+                        (input)="setInventoryDraft(entry.id, $any($event.target).value)"
+                      />
+                    </td>
+                    <td>{{ date(entry.lastUpdated) | date: 'medium' }}</td>
+                    <td class="row-actions">
+                      <button
+                        type="button"
+                        class="secondary small"
+                        [disabled]="actionBusy()"
+                        (click)="saveInventoryQuantity(entry)"
+                      >
+                        Save quantity
+                      </button>
+                      <button
+                        type="button"
+                        class="danger small"
+                        (click)="requestDelete({ type: 'inventory', id: entry.id })"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        @if (showInventoryForm()) {
+          <form class="editor compact-editor" (submit)="saveInventory($event)">
+            <h3>Add inventory entry</h3>
+            <div class="form-grid">
+              <label>
+                Product
+                <select
+                  required
+                  [value]="inventoryProductId()"
+                  (change)="inventoryProductId.set($any($event.target).value)"
+                >
+                  <option value="">Choose product</option>
+                  @for (product of products(); track product.id) {
+                    <option [value]="product.id">{{ product.name }} · {{ product.sku }}</option>
+                  }
+                </select>
+              </label>
+              <label
+                >Starting quantity<input
+                  required
+                  type="number"
+                  min="0"
+                  step="1"
+                  [value]="inventoryQuantity()"
+                  (input)="inventoryQuantity.set($any($event.target).value)"
+              /></label>
+            </div>
+            <div class="actions">
+              <button type="button" class="secondary" (click)="showInventoryForm.set(false)">
+                Cancel
+              </button>
+              <button type="submit" class="primary" [disabled]="actionBusy()">Create entry</button>
+            </div>
+          </form>
+        }
+      </section>
+    }
+
+    @if (section() === 'employees' && canManageEmployees()) {
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Employees</h2>
+            <p class="muted">Only roles allowed for your account are available.</p>
+          </div>
+          <button type="button" class="primary" (click)="openCreateEmployee()">Add employee</button>
+        </div>
+        @if (showEmployeeForm()) {
+          <form class="editor" (submit)="saveEmployee($event)">
+            <h3>{{ employeeEditing() ? 'Edit employee' : 'New employee' }}</h3>
+            <div class="form-grid">
+              <label
+                >Full name<input
+                  required
+                  [value]="employeeDraft().fullName"
+                  (input)="updateEmployeeField('fullName', $any($event.target).value)"
+              /></label>
+              <label
+                >Email<input
+                  required
+                  type="email"
+                  [value]="employeeDraft().email"
+                  (input)="updateEmployeeField('email', $any($event.target).value)"
+              /></label>
+              <label
+                >Phone<input
+                  [value]="employeeDraft().phone"
+                  (input)="updateEmployeeField('phone', $any($event.target).value)"
+              /></label>
+              <label>
+                Role
+                <select
+                  [value]="employeeDraft().role"
+                  (change)="updateEmployeeField('role', $any($event.target).value)"
+                >
+                  @for (
+                    role of employeeEditing() ? employeeRolesForEdit() : employeeRolesForCreation();
+                    track role
+                  ) {
+                    <option [value]="role">
+                      {{ role.replace('ROLE_', '').replace('_', ' ') }}
+                    </option>
+                  }
+                </select>
+              </label>
+              @if (employeeDraft().role !== 'ROLE_STORE_MANAGER') {
+                <label>
+                  Branch
+                  <select
+                    required
+                    [value]="employeeDraft().branchId || selectedBranchId() || ''"
+                    (change)="updateEmployeeField('branchId', $any($event.target).value)"
+                    [disabled]="isBranchManager()"
+                  >
+                    <option value="">Choose branch</option>
+                    @for (branch of branches(); track branch.id) {
+                      <option [value]="branch.id">{{ branch.name }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              <label>
+                {{ employeeEditing() ? 'New password (optional)' : 'Password' }}
+                <input
+                  [required]="!employeeEditing()"
+                  type="password"
+                  autocomplete="new-password"
+                  [value]="employeeDraft().password"
+                  (input)="updateEmployeeField('password', $any($event.target).value)"
+                />
+              </label>
+            </div>
+            <div class="actions">
+              <button type="button" class="secondary" (click)="showEmployeeForm.set(false)">
+                Cancel
+              </button>
+              <button type="submit" class="primary" [disabled]="actionBusy()">Save employee</button>
+            </div>
+          </form>
+        }
+        @if (!employees().length) {
+          <div class="empty">No employees found.</div>
+        } @else {
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Branch</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (employee of employees(); track employee.id) {
+                  <tr>
+                    <td>{{ employee.fullName }}</td>
+                    <td>{{ employee.email }}</td>
+                    <td>{{ employee.role.replace('ROLE_', '').replace('_', ' ') }}</td>
+                    <td>{{ branchName(employee.branchId) }}</td>
+                    <td>{{ employee.status || 'ACTIVE' }}</td>
+                    <td class="row-actions">
+                      @if (canEditEmployee(employee)) {
+                        <button
+                          type="button"
+                          class="secondary small"
+                          (click)="editEmployee(employee)"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          class="danger small"
+                          (click)="requestDelete({ type: 'employee', id: employee.id })"
+                        >
+                          Delete
+                        </button>
+                      } @else {
+                        <span class="muted small-text">Not manageable</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+
+    @if (section() === 'orders') {
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Orders</h2>
+            <p class="muted">Orders for the selected branch.</p>
+          </div>
+        </div>
+        @if (branchLoading()) {
+          <div class="empty">Loading orders…</div>
+        } @else if (!orders().length) {
+          <div class="empty">No orders found.</div>
+        } @else {
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Date</th>
+                  <th>Customer</th>
+                  <th>Cashier</th>
+                  <th>Payment</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (order of orders(); track order.id) {
+                  <tr>
+                    <td>#{{ order.id }}</td>
+                    <td>{{ date(order.createdAt) | date: 'medium' }}</td>
+                    <td>{{ order.customer?.fullName || 'Walk-in' }}</td>
+                    <td>{{ order.cashier?.fullName || '—' }}</td>
+                    <td>{{ order.paymentType || '—' }}</td>
+                    <td>{{ order.items.length || 0 }}</td>
+                    <td>{{ order.totalAmount | currency: 'BAM' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+
+    @if (section() === 'refunds') {
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Refunds</h2>
+            <p class="muted">Refunds for the selected branch.</p>
+          </div>
+        </div>
+        @if (branchLoading()) {
+          <div class="empty">Loading refunds…</div>
+        } @else if (!refunds().length) {
+          <div class="empty">No refunds found.</div>
+        } @else {
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Refund</th>
+                  <th>Date</th>
+                  <th>Order</th>
+                  <th>Reason</th>
+                  <th>Cashier</th>
+                  <th>Payment</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (refund of refunds(); track refund.id) {
+                  <tr>
+                    <td>#{{ refund.id }}</td>
+                    <td>{{ date(refund.createdAt) | date: 'medium' }}</td>
+                    <td>{{ refund.orderId ?? '—' }}</td>
+                    <td>{{ refund.reason || '—' }}</td>
+                    <td>{{ refund.cashierName || '—' }}</td>
+                    <td>{{ refund.paymentType || '—' }}</td>
+                    <td>{{ refund.amount | currency: 'BAM' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+
+    @if (section() === 'reports') {
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Shifts & reports</h2>
+            <p class="muted">Shift summaries for the selected branch.</p>
+          </div>
+        </div>
+        @if (branchLoading()) {
+          <div class="empty">Loading reports…</div>
+        } @else if (!reports().length) {
+          <div class="empty">No shift reports found.</div>
+        } @else {
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Shift</th>
+                  <th>Cashier</th>
+                  <th>Started</th>
+                  <th>Ended</th>
+                  <th>Orders</th>
+                  <th>Sales</th>
+                  <th>Refunds</th>
+                  <th>Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (report of reports(); track report.id) {
+                  <tr>
+                    <td>#{{ report.id }}</td>
+                    <td>{{ report.cashier?.fullName || '—' }}</td>
+                    <td>{{ date(report.shiftStart) | date: 'medium' }}</td>
+                    <td>
+                      {{
+                        report.shiftEnd ? (date(report.shiftEnd) | date: 'medium') : 'In progress'
+                      }}
+                    </td>
+                    <td>{{ report.totalOrders ?? '—' }}</td>
+                    <td>{{ report.totalSales | currency: 'BAM' }}</td>
+                    <td>{{ report.totalRefunds | currency: 'BAM' }}</td>
+                    <td>{{ report.netSales | currency: 'BAM' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+  }
+
+  @if (deleteTarget()) {
+    <div class="modal-backdrop" role="presentation">
+      <section
+        class="confirm-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-title"
+      >
+        <h2 id="delete-title">Delete this item?</h2>
+        <p>This action cannot be undone.</p>
+        <div class="actions">
+          <button type="button" class="secondary" (click)="cancelDelete()">Cancel</button>
+          <button type="button" class="danger" [disabled]="actionBusy()" (click)="confirmDelete()">
+            {{ actionBusy() ? 'Deleting…' : 'Delete' }}
+          </button>
+        </div>
+      </section>
+    </div>
+  }
+</section>

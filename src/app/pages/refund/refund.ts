@@ -1,10 +1,14 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../../core/auth.service';
 import { Order, OrderItem, PaymentType } from '../../core/models';
 import { OrderService } from '../../core/order.service';
 import { toDate } from '../../core/loyalty';
+import { RefundService } from '../../core/refund.service';
+import { apiErrorMessage } from '../../core/api-error-message';
 
 @Component({
   selector: 'app-refund',
@@ -15,6 +19,7 @@ import { toDate } from '../../core/loyalty';
 })
 export class Refund {
   private readonly api = inject(OrderService);
+  private readonly refundsApi = inject(RefundService);
   private readonly auth = inject(AuthService);
 
   readonly orders = signal<Order[]>([]);
@@ -24,10 +29,10 @@ export class Refund {
   readonly selectedOrder = signal<Order | null>(null);
   readonly returnItemIds = signal<number[]>([]);
   readonly returnQuantities = signal<Record<number, number>>({});
-  readonly returnedQuantities = signal<Record<string, number>>({});
+  readonly refundedOrderIds = signal<Set<number>>(new Set());
   readonly returnReason = signal('');
-  readonly refundMethod = signal<PaymentType>('CASH');
   readonly confirming = signal(false);
+  readonly saving = signal(false);
   readonly successMessage = signal('');
   readonly date = toDate;
 
@@ -46,8 +51,7 @@ export class Refund {
           (item) => this.remainingQuantity(order, item) > 0,
         );
         const orderBranchId = order.branch?.id;
-        const matchesBranch =
-          orderBranchId == null || orderBranchId === this.auth.user()?.branchId;
+        const matchesBranch = orderBranchId === this.auth.user()?.branchId;
         return matchesSearch && hasReturnableItems && matchesBranch;
       })
       .sort((a, b) => this.timestamp(b.createdAt) - this.timestamp(a.createdAt));
@@ -78,7 +82,11 @@ export class Refund {
   load() {
     this.loading.set(true);
     this.error.set('');
+    this.orders.set([]);
+    this.selectedOrder.set(null);
+    this.refundedOrderIds.set(new Set());
     const user = this.auth.user();
+    const scope = this.auth.scopeKey();
     if (!this.auth.canRefund()) {
       this.error.set('Refunds are only available to cashiers assigned to a branch.');
       this.loading.set(false);
@@ -90,14 +98,31 @@ export class Refund {
       return;
     }
 
-    this.api.getByBranch(user.branchId).subscribe({
-      next: (orders) => {
-        this.orders.set(orders);
+    forkJoin({
+      orders: this.api.getByBranch(user.branchId),
+      refunds: this.refundsApi.getByBranch(user.branchId),
+    }).subscribe({
+      next: ({ orders, refunds }) => {
+        if (scope !== this.auth.scopeKey()) return;
+        this.orders.set(orders.filter((order) => order.branch?.id === user.branchId));
+        this.refundedOrderIds.set(
+          new Set(
+            refunds
+              .map((refund) => refund.orderId ?? refund.order?.id)
+              .filter((orderId): orderId is number => orderId != null),
+          ),
+        );
         this.loading.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
+        if (scope !== this.auth.scopeKey()) return;
+        this.orders.set([]);
+        this.refundedOrderIds.set(new Set());
         this.error.set(
-          'Unable to load orders for this branch. Check that the backend is available and try again.',
+          apiErrorMessage(
+            error,
+            'Unable to load orders and refunds for this branch. Check the backend and try again.',
+          ),
         );
         this.loading.set(false);
       },
@@ -105,11 +130,16 @@ export class Refund {
   }
 
   openOrder(order: Order) {
+    if (
+      order.branch?.id !== this.auth.user()?.branchId ||
+      this.refundedOrderIds().has(order.id)
+    ) {
+      return;
+    }
     this.selectedOrder.set(order);
     this.returnItemIds.set([]);
     this.returnQuantities.set({});
     this.returnReason.set('');
-    this.refundMethod.set(order.paymentType ?? 'CASH');
     this.confirming.set(false);
     this.successMessage.set('');
   }
@@ -159,18 +189,40 @@ export class Refund {
   confirmRefund() {
     const order = this.selectedOrder();
     if (!order || !this.selectedItems().length || !this.returnReason().trim()) return;
+    if (this.refundedOrderIds().has(order.id) || this.saving()) return;
 
-    this.returnedQuantities.update((returned) => {
-      const updated = { ...returned };
-      for (const selection of this.selectedItems()) {
-        const key = this.returnKey(order, selection.item);
-        updated[key] = (updated[key] ?? 0) + selection.quantity;
-      }
-      return updated;
-    });
-    this.successMessage.set(`Refund recorded for order #${order.id}.`);
-    this.selectedOrder.set(null);
-    this.confirming.set(false);
+    this.error.set('');
+    this.saving.set(true);
+    const scope = this.auth.scopeKey();
+    this.refundsApi
+      .create({
+        orderId: order.id,
+        amount: this.refundAmount(),
+        reason: this.returnReason().trim(),
+      })
+      .subscribe({
+        next: () => {
+          if (scope !== this.auth.scopeKey()) return;
+          this.saving.set(false);
+          this.refundedOrderIds.update((ids) => new Set(ids).add(order.id));
+          this.successMessage.set(`Refund recorded for order #${order.id}.`);
+          this.selectedOrder.set(null);
+          this.confirming.set(false);
+        },
+        error: (error: unknown) => {
+          if (scope !== this.auth.scopeKey()) return;
+          this.saving.set(false);
+          this.error.set(
+            apiErrorMessage(error, 'The refund could not be recorded. Please try again.'),
+          );
+          this.confirming.set(false);
+          if (error instanceof HttpErrorResponse && error.status === 403) {
+            this.orders.set([]);
+            this.refundedOrderIds.set(new Set());
+            this.selectedOrder.set(null);
+          }
+        },
+      });
   }
 
   unitPrice(item: OrderItem) {
@@ -182,10 +234,7 @@ export class Refund {
   }
 
   remainingQuantity(order: Order, item: OrderItem) {
-    return Math.max(
-      0,
-      item.quantity - (this.returnedQuantities()[this.returnKey(order, item)] ?? 0),
-    );
+    return this.refundedOrderIds().has(order.id) ? 0 : item.quantity;
   }
 
   customerName(order: Order) {
@@ -206,10 +255,6 @@ export class Refund {
       default:
         return '—';
     }
-  }
-
-  private returnKey(order: Order, item: OrderItem) {
-    return `${order.id}:${item.id}`;
   }
 
   private timestamp(value: Order['createdAt']) {

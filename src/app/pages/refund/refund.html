@@ -10,6 +10,9 @@
         <h1>Return order #{{ order.id }}</h1>
       </div>
     </header>
+    @if (error()) {
+      <div class="error-message" role="alert">{{ error() }}</div>
+    }
 
     <div class="return-layout">
       <div class="left-column">
@@ -146,6 +149,10 @@
         </section>
 
         <section class="card refund-options">
+          <p class="empty-state">
+            The backend records the refund amount and reason, but does not store returned item
+            quantities or a refund method. This screen therefore allows one refund record per order.
+          </p>
           <label class="form-field">
             <span>Return reason</span>
             <textarea
@@ -155,25 +162,14 @@
               (input)="returnReason.set($any($event.target).value)"
             ></textarea>
           </label>
-          <label class="form-field">
-            <span>Refund method</span>
-            <select
-              [value]="refundMethod()"
-              (change)="refundMethod.set($any($event.target).value)"
-            >
-              <option value="CASH">Cash</option>
-              <option value="CARD">Card</option>
-              <option value="UPI">UPI</option>
-            </select>
-          </label>
           <button
             hlmBtn
             type="button"
             class="process-button"
-            [disabled]="!selectedItems().length || !returnReason().trim()"
+            [disabled]="!selectedItems().length || !returnReason().trim() || saving()"
             (click)="showConfirmation()"
           >
-            Process refund
+            {{ saving() ? 'Recording refund…' : 'Process refund' }}
           </button>
         </section>
       </div>
@@ -296,8 +292,8 @@
             <dd>{{ customerName(order) }}</dd>
           </div>
           <div>
-            <dt>Refund method</dt>
-            <dd>{{ paymentLabel(refundMethod()) }}</dd>
+            <dt>Refund amount</dt>
+            <dd>{{ refundAmount() | currency: 'EUR' }}</dd>
           </div>
           <div>
             <dt>Return reason</dt>
@@ -317,8 +313,14 @@
           <button hlmBtn variant="outline" type="button" (click)="cancelConfirmation()">
             Cancel
           </button>
-          <button hlmBtn type="button" class="confirm-button" (click)="confirmRefund()">
-            Confirm refund
+          <button
+            hlmBtn
+            type="button"
+            class="confirm-button"
+            [disabled]="saving()"
+            (click)="confirmRefund()"
+          >
+            {{ saving() ? 'Recording…' : 'Confirm refund' }}
           </button>
         </div>
       </section>

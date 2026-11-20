@@ -17,7 +17,14 @@ describe('CashierDashboard', () => {
     await TestBed.configureTestingModule({
       imports: [CashierDashboard],
       providers: [
-        { provide: AuthService, useValue: { user: () => ({ branchId: 7 }) } },
+        {
+          provide: AuthService,
+          useValue: {
+            user: () => ({ branchId: 7 }),
+            scopeKey: () => '1:BRANCH_CASHIER:2:7:ACTIVE',
+            canRefund: () => true,
+          },
+        },
         { provide: BranchService, useValue: { getById: () => of({ id: 7, storeId: 2 }) } },
         { provide: CustomerService, useValue: { getAll: () => of([]) } },
         { provide: ProductService, useValue: { getByStore: () => of([]) } },
