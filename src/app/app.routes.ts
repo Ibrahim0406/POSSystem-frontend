@@ -7,6 +7,7 @@ import {
   branchOrdersGuard,
   landingGuard,
   shiftSummaryGuard,
+  storeDashboardGuard,
   storeStatusGuard,
 } from './core/auth.guard';
 import { Login } from './pages/login/login';
@@ -24,6 +25,12 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/signup/signup').then((module) => module.Signup),
   },
   { path: 'store-status', component: StoreStatusPage, canActivate: [authGuard, storeStatusGuard] },
+  {
+    path: 'store-dashboard',
+    loadComponent: () =>
+      import('./pages/store-dashboard/store-dashboard').then((module) => module.StoreDashboard),
+    canActivate: [authGuard, storeDashboardGuard],
+  },
   { path: 'account-access', component: AccountAccess, canActivate: [authGuard] },
   {
     path: 'shift-summary',

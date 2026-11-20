@@ -195,7 +195,7 @@ export class Login {
     this.auth.login(email, password).subscribe({
       next: () => {
         this.loading.set(false);
-        this.router.navigate(['/']);
+        this.router.navigate([this.auth.homeRoute()]);
       },
       error: (err: { status: number }) => {
         this.loading.set(false);

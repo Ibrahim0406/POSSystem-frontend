@@ -42,7 +42,8 @@ export class AuthService {
     const user = this._user();
     const role = this.role();
     return (
-      ((role === 'STORE_ADMIN' || role === 'STORE_MANAGER') && user?.storeId != null) ||
+      role === 'STORE_ADMIN' ||
+      (role === 'STORE_MANAGER' && user?.storeId != null) ||
       ((role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER') && user?.branchId != null)
     );
   });
@@ -67,6 +68,12 @@ export class AuthService {
     if (this.isAdmin()) return '/admin';
     if (this._storeStatus() === 'PENDING' || this._storeStatus() === 'BLOCKED') {
       return '/store-status';
+    }
+    if (
+      this.role() === 'STORE_ADMIN' ||
+      (this.role() === 'STORE_MANAGER' && this._user()?.storeId != null)
+    ) {
+      return '/store-dashboard';
     }
     if (this.canRefund()) return '/cashier';
     if (this.canViewShiftSummary()) return '/shift-summary';

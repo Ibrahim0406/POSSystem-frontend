@@ -58,6 +58,24 @@ describe('AuthService', () => {
 
     expect(auth.storeStatus()).toBe('PENDING');
     expect(localStorage.getItem('cms_store_status')).toBe('PENDING');
+    expect(auth.homeRoute()).toBe('/store-status');
+  });
+
+  it('routes an active store administrator to the store workspace without relying on client storeId', () => {
+    auth.login('owner@example.com', 'password').subscribe();
+    http.expectOne('/auth/signin').flush({
+      jwt: 'owner-token',
+      storeStatus: 'ACTIVE',
+      user: {
+        id: 4,
+        fullName: 'Store Owner',
+        email: 'owner@example.com',
+        role: 'ROLE_STORE_ADMIN',
+      },
+    });
+
+    expect(auth.homeRoute()).toBe('/store-dashboard');
+    expect(auth.canAccessCustomers()).toBe(true);
   });
 
   it('keeps a platform administrator on the admin route when storeStatus is absent', () => {

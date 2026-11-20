@@ -1,6 +1,6 @@
 @if (
   auth.isLoggedIn() &&
-  (isAdmin() || canAccessCustomers() || canViewShiftSummary()) &&
+  (isAdmin() || canOpenStoreDashboard() || canAccessCustomers() || canViewShiftSummary()) &&
   (isAdmin() || auth.storeStatus() === null || auth.storeStatus() === 'ACTIVE')
 ) {
   <div class="app-shell">
@@ -30,6 +30,16 @@
                 Admin console
               </a>
             } @else {
+              @if (canOpenStoreDashboard()) {
+                <a
+                  hlmDropdownMenuItem
+                  routerLink="/store-dashboard"
+                  routerLinkActive="current"
+                  [routerLinkActiveOptions]="{ exact: true }"
+                >
+                  Store workspace
+                </a>
+              }
               @if (canViewShiftSummary()) {
                 <a
                   hlmDropdownMenuItem

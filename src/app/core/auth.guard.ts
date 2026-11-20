@@ -2,13 +2,15 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './auth.service';
 
-export const authGuard: CanActivateFn = () => {
+export const authGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
   if (!auth.isLoggedIn()) return router.createUrlTree(['/signup']);
+  const currentPath = state.url.split('?')[0];
   if (
     !auth.isAdmin() &&
-    (auth.storeStatus() === 'PENDING' || auth.storeStatus() === 'BLOCKED')
+    (auth.storeStatus() === 'PENDING' || auth.storeStatus() === 'BLOCKED') &&
+    currentPath !== '/store-status'
   ) {
     return router.createUrlTree(['/store-status']);
   }
@@ -44,11 +46,20 @@ export const adminGuard: CanActivateFn = () => {
   return auth.isAdmin() ? true : inject(Router).createUrlTree([auth.homeRoute()]);
 };
 
-export const branchOperationsGuard: CanActivateFn = () => {
+export const storeDashboardGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  return auth.canAccessCustomers()
+  const role = auth.role();
+  const user = auth.user();
+  return role === 'STORE_ADMIN' ||
+    (role === 'STORE_MANAGER' && user?.storeId != null) ||
+    (role === 'BRANCH_MANAGER' && user?.branchId != null)
     ? true
     : inject(Router).createUrlTree([auth.homeRoute()]);
+};
+
+export const branchOperationsGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  return auth.canAccessCustomers() ? true : inject(Router).createUrlTree([auth.homeRoute()]);
 };
 
 export const shiftSummaryGuard: CanActivateFn = () => {
