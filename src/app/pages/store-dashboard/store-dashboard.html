@@ -36,6 +36,8 @@
 
   <nav class="section-nav" aria-label="Store workspace sections">
     <button
+      hlmBtn
+      variant="ghost"
       type="button"
       [class.active]="section() === 'overview'"
       (click)="selectSection('overview')"
@@ -44,6 +46,8 @@
     </button>
     @if (canManageBranches()) {
       <button
+        hlmBtn
+        variant="ghost"
         type="button"
         [class.active]="section() === 'branches'"
         (click)="selectSection('branches')"
@@ -53,6 +57,8 @@
     }
     @if (canManageCatalog()) {
       <button
+        hlmBtn
+        variant="ghost"
         type="button"
         [class.active]="section() === 'catalog'"
         (click)="selectSection('catalog')"
@@ -62,6 +68,8 @@
     }
     @if (canManageInventory()) {
       <button
+        hlmBtn
+        variant="ghost"
         type="button"
         [class.active]="section() === 'inventory'"
         (click)="selectSection('inventory')"
@@ -71,6 +79,8 @@
     }
     @if (canManageEmployees()) {
       <button
+        hlmBtn
+        variant="ghost"
         type="button"
         [class.active]="section() === 'employees'"
         (click)="selectSection('employees')"
@@ -78,10 +88,12 @@
         Employees
       </button>
     }
-    <button type="button" [class.active]="section() === 'orders'" (click)="selectSection('orders')">
+    <button hlmBtn variant="ghost" type="button" [class.active]="section() === 'orders'" (click)="selectSection('orders')">
       Orders
     </button>
     <button
+      hlmBtn
+      variant="ghost"
       type="button"
       [class.active]="section() === 'refunds'"
       (click)="selectSection('refunds')"
@@ -89,6 +101,8 @@
       Refunds
     </button>
     <button
+      hlmBtn
+      variant="ghost"
       type="button"
       [class.active]="section() === 'reports'"
       (click)="selectSection('reports')"
@@ -130,8 +144,8 @@
             <p>Create your first branch to manage stock and branch activity.</p>
             @if (canCreateBranch()) {
               <button
+                hlmBtn
                 type="button"
-                class="primary"
                 (click)="selectSection('branches'); openCreateBranch()"
               >
                 Create branch
@@ -150,7 +164,7 @@
             <p class="muted">Branches are automatically attached to your store.</p>
           </div>
           @if (canCreateBranch()) {
-            <button type="button" class="primary" (click)="openCreateBranch()">Add branch</button>
+            <button hlmBtn type="button" (click)="openCreateBranch()">Add branch</button>
           }
         </div>
 
@@ -212,10 +226,10 @@
               }
             </fieldset>
             <div class="actions">
-              <button type="button" class="secondary" (click)="showBranchForm.set(false)">
+              <button hlmBtn variant="outline" type="button" (click)="showBranchForm.set(false)">
                 Cancel
               </button>
-              <button type="submit" class="primary" [disabled]="actionBusy()">
+              <button hlmBtn type="submit" [disabled]="actionBusy()">
                 {{ actionBusy() ? 'Saving…' : 'Save branch' }}
               </button>
             </div>
@@ -246,12 +260,14 @@
                     <td>{{ branch.workingDays.join(', ') }}</td>
                     <td>{{ timeInput(branch.openTime) }}–{{ timeInput(branch.closeTime) }}</td>
                     <td class="row-actions">
-                      <button type="button" class="secondary small" (click)="editBranch(branch)">
+                      <button hlmBtn variant="outline" size="sm" type="button" (click)="editBranch(branch)">
                         Edit
                       </button>
                       <button
+                        hlmBtn
+                        variant="destructive"
+                        size="sm"
                         type="button"
-                        class="danger small"
                         (click)="requestDelete({ type: 'branch', id: branch.id })"
                       >
                         Delete
@@ -273,14 +289,14 @@
             <h2>Products & categories</h2>
             <p class="muted">Catalog data is scoped to the current store.</p>
           </div>
-          <button type="button" class="primary" (click)="openCreateProduct()">Add product</button>
+          <button hlmBtn type="button" (click)="openCreateProduct()">Add product</button>
         </div>
 
         <div class="catalog-grid">
           <section class="subpanel">
             <div class="panel-heading compact">
               <h3>Categories</h3>
-              <button type="button" class="secondary" (click)="openCreateCategory()">
+              <button hlmBtn variant="outline" type="button" (click)="openCreateCategory()">
                 Add category
               </button>
             </div>
@@ -300,10 +316,10 @@
                   />
                 </label>
                 <div class="actions">
-                  <button type="button" class="secondary" (click)="showCategoryForm.set(false)">
+                  <button hlmBtn variant="outline" type="button" (click)="showCategoryForm.set(false)">
                     Cancel
                   </button>
-                  <button type="submit" class="primary" [disabled]="actionBusy()">Save</button>
+                  <button hlmBtn type="submit" [disabled]="actionBusy()">Save</button>
                 </div>
               </form>
             }
@@ -317,15 +333,19 @@
                     @if (category.id) {
                       <span class="row-actions">
                         <button
+                          hlmBtn
+                          variant="outline"
+                          size="sm"
                           type="button"
-                          class="secondary small"
                           (click)="editCategory(category)"
                         >
                           Edit
                         </button>
                         <button
+                          hlmBtn
+                          variant="destructive"
+                          size="sm"
                           type="button"
-                          class="danger small"
                           (click)="requestDelete({ type: 'category', id: category.id! })"
                         >
                           Delete
@@ -412,10 +432,10 @@
               }
             </p>
             <div class="actions">
-              <button type="button" class="secondary" (click)="showProductForm.set(false)">
+              <button hlmBtn variant="outline" type="button" (click)="showProductForm.set(false)">
                 Cancel
               </button>
-              <button type="submit" class="primary" [disabled]="actionBusy()">Save product</button>
+              <button hlmBtn type="submit" [disabled]="actionBusy()">Save product</button>
             </div>
           </form>
         }
@@ -445,12 +465,14 @@
                     <td>{{ product.category?.name || '—' }}</td>
                     <td>{{ product.sellingPrice | currency: 'BAM' }}</td>
                     <td class="row-actions">
-                      <button type="button" class="secondary small" (click)="editProduct(product)">
+                      <button hlmBtn variant="outline" size="sm" type="button" (click)="editProduct(product)">
                         Edit
                       </button>
                       <button
+                        hlmBtn
+                        variant="destructive"
+                        size="sm"
                         type="button"
-                        class="danger small"
                         (click)="requestDelete({ type: 'product', id: product.id })"
                       >
                         Delete
@@ -475,8 +497,8 @@
             </p>
           </div>
           <button
+            hlmBtn
             type="button"
-            class="primary"
             [disabled]="!selectedBranchId()"
             (click)="openCreateInventory()"
           >
@@ -517,16 +539,20 @@
                     <td>{{ date(entry.lastUpdated) | date: 'medium' }}</td>
                     <td class="row-actions">
                       <button
+                        hlmBtn
+                        variant="outline"
+                        size="sm"
                         type="button"
-                        class="secondary small"
                         [disabled]="actionBusy()"
                         (click)="saveInventoryQuantity(entry)"
                       >
                         Save quantity
                       </button>
                       <button
+                        hlmBtn
+                        variant="destructive"
+                        size="sm"
                         type="button"
-                        class="danger small"
                         (click)="requestDelete({ type: 'inventory', id: entry.id })"
                       >
                         Remove
@@ -566,10 +592,10 @@
               /></label>
             </div>
             <div class="actions">
-              <button type="button" class="secondary" (click)="showInventoryForm.set(false)">
+              <button hlmBtn variant="outline" type="button" (click)="showInventoryForm.set(false)">
                 Cancel
               </button>
-              <button type="submit" class="primary" [disabled]="actionBusy()">Create entry</button>
+              <button hlmBtn type="submit" [disabled]="actionBusy()">Create entry</button>
             </div>
           </form>
         }
@@ -583,7 +609,7 @@
             <h2>Employees</h2>
             <p class="muted">Only roles allowed for your account are available.</p>
           </div>
-          <button type="button" class="primary" (click)="openCreateEmployee()">Add employee</button>
+          <button hlmBtn type="button" (click)="openCreateEmployee()">Add employee</button>
         </div>
         @if (showEmployeeForm()) {
           <form class="editor" (submit)="saveEmployee($event)">
@@ -651,10 +677,10 @@
               </label>
             </div>
             <div class="actions">
-              <button type="button" class="secondary" (click)="showEmployeeForm.set(false)">
+              <button hlmBtn variant="outline" type="button" (click)="showEmployeeForm.set(false)">
                 Cancel
               </button>
-              <button type="submit" class="primary" [disabled]="actionBusy()">Save employee</button>
+              <button hlmBtn type="submit" [disabled]="actionBusy()">Save employee</button>
             </div>
           </form>
         }
@@ -684,15 +710,19 @@
                     <td class="row-actions">
                       @if (canEditEmployee(employee)) {
                         <button
+                          hlmBtn
+                          variant="outline"
+                          size="sm"
                           type="button"
-                          class="secondary small"
                           (click)="editEmployee(employee)"
                         >
                           Edit
                         </button>
                         <button
+                          hlmBtn
+                          variant="destructive"
+                          size="sm"
                           type="button"
-                          class="danger small"
                           (click)="requestDelete({ type: 'employee', id: employee.id })"
                         >
                           Delete
@@ -863,8 +893,8 @@
         <h2 id="delete-title">Delete this item?</h2>
         <p>This action cannot be undone.</p>
         <div class="actions">
-          <button type="button" class="secondary" (click)="cancelDelete()">Cancel</button>
-          <button type="button" class="danger" [disabled]="actionBusy()" (click)="confirmDelete()">
+          <button hlmBtn variant="outline" type="button" (click)="cancelDelete()">Cancel</button>
+          <button hlmBtn variant="destructive" type="button" [disabled]="actionBusy()" (click)="confirmDelete()">
             {{ actionBusy() ? 'Deleting…' : 'Delete' }}
           </button>
         </div>

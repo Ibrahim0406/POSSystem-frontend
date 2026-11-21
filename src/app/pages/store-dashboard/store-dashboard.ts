@@ -13,6 +13,7 @@ import {
   switchMap,
   tap,
 } from 'rxjs';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../core/auth.service';
 import { apiErrorMessage } from '../../core/api-error-message';
@@ -92,7 +93,7 @@ function blankEmployee(role: StoreUserRole): EmployeeDraft {
 
 @Component({
   selector: 'app-store-dashboard',
-  imports: [DatePipe, CurrencyPipe],
+  imports: [DatePipe, CurrencyPipe, HlmButtonImports],
   templateUrl: './store-dashboard.html',
   styleUrl: './store-dashboard.css',
 })
