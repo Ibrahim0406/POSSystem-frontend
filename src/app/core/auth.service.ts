@@ -20,9 +20,7 @@ export class AuthService {
   private _token = signal<string | null>(this.getItem(TOKEN_KEY));
   private _user = signal<AuthResponse['user'] | null>(JSON.parse(this.getItem(USER_KEY) ?? 'null'));
   private _storeStatus = signal<StoreStatus | null>(
-    (this.getItem(STORE_STATUS_KEY) as StoreStatus | null) ??
-      this._user()?.storeStatus ??
-      null,
+    (this.getItem(STORE_STATUS_KEY) as StoreStatus | null) ?? this._user()?.storeStatus ?? null,
   );
 
   readonly token = this._token.asReadonly();
@@ -30,7 +28,11 @@ export class AuthService {
   readonly storeStatus = this._storeStatus.asReadonly();
   readonly isLoggedIn = computed(() => !!this._token());
   readonly role = computed(
-    () => this._user()?.role.trim().toUpperCase().replace(/^ROLE_/, '') ?? null,
+    () =>
+      this._user()
+        ?.role.trim()
+        .toUpperCase()
+        .replace(/^ROLE_/, '') ?? null,
   );
   readonly scopeKey = computed(() => {
     const user = this._user();
@@ -42,7 +44,7 @@ export class AuthService {
     const user = this._user();
     const role = this.role();
     return (
-      role === 'STORE_ADMIN' ||
+      //role === 'STORE_ADMIN' ||
       (role === 'STORE_MANAGER' && user?.storeId != null) ||
       ((role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER') && user?.branchId != null)
     );
@@ -50,8 +52,7 @@ export class AuthService {
   readonly canViewShiftSummary = computed(() => {
     const role = this.role();
     return (
-      (role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER') &&
-      this._user()?.branchId != null
+      (role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER') && this._user()?.branchId != null
     );
   });
   readonly canViewBranchOrders = computed(() => {
@@ -82,15 +83,15 @@ export class AuthService {
   });
 
   login(email: string, password: string) {
-    return this.http.post<AuthResponse>('/auth/signin', { email, password }).pipe(
-      tap((res) => this.saveAuth(res)),
-    );
+    return this.http
+      .post<AuthResponse>('/auth/signin', { email, password })
+      .pipe(tap((res) => this.saveAuth(res)));
   }
 
   signup(request: SignupRequest) {
-    return this.http.post<SignupResponse>('/auth/signup', request).pipe(
-      tap((res) => this.saveAuth(res)),
-    );
+    return this.http
+      .post<SignupResponse>('/auth/signup', request)
+      .pipe(tap((res) => this.saveAuth(res)));
   }
 
   logout() {
