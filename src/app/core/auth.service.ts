@@ -17,8 +17,8 @@ export class AuthService {
   private platformId = inject(PLATFORM_ID);
   private isBrowser = isPlatformBrowser(this.platformId);
 
-  private _token = signal<string | null>(this.getItem(TOKEN_KEY));
-  private _user = signal<AuthResponse['user'] | null>(JSON.parse(this.getItem(USER_KEY) ?? 'null'));
+  private _token = signal<string | null>(this.getValidStoredToken());
+  private _user = signal<AuthResponse['user'] | null>(this.getStoredUser());
   private _storeStatus = signal<StoreStatus | null>(
     (this.getItem(STORE_STATUS_KEY) as StoreStatus | null) ?? this._user()?.storeStatus ?? null,
   );
@@ -34,6 +34,26 @@ export class AuthService {
         .toUpperCase()
         .replace(/^ROLE_/, '') ?? null,
   );
+  readonly hasStoreScope = computed(() => {
+    const user = this._user();
+    return (
+      (this.role() === 'STORE_ADMIN' || this.role() === 'STORE_MANAGER') &&
+      user?.storeId != null
+    );
+  });
+  readonly hasBranchScope = computed(() => {
+    const user = this._user();
+    return (
+      (this.role() === 'BRANCH_MANAGER' || this.role() === 'BRANCH_CASHIER') &&
+      user?.branchId != null
+    );
+  });
+  readonly hasValidScope = computed(() => {
+    const role = this.role();
+    if (role === 'ADMIN') return true;
+    if (role === 'STORE_ADMIN') return true;
+    return this.hasStoreScope() || this.hasBranchScope();
+  });
   readonly scopeKey = computed(() => {
     const user = this._user();
     return user
@@ -41,12 +61,10 @@ export class AuthService {
       : 'anonymous';
   });
   readonly canAccessCustomers = computed(() => {
-    const user = this._user();
-    const role = this.role();
     return (
-      //role === 'STORE_ADMIN' ||
-      (role === 'STORE_MANAGER' && user?.storeId != null) ||
-      ((role === 'BRANCH_MANAGER' || role === 'BRANCH_CASHIER') && user?.branchId != null)
+      this.role() === 'STORE_ADMIN' ||
+      this.hasStoreScope() ||
+      this.hasBranchScope()
     );
   });
   readonly canViewShiftSummary = computed(() => {
@@ -70,15 +88,18 @@ export class AuthService {
     if (this._storeStatus() === 'PENDING' || this._storeStatus() === 'BLOCKED') {
       return '/store-status';
     }
-    if (
-      this.role() === 'STORE_ADMIN' ||
-      (this.role() === 'STORE_MANAGER' && this._user()?.storeId != null)
-    ) {
-      return '/store-dashboard';
+    const role = this.role();
+    if (!this.isLoggedIn()) return '/login';
+    if (role === 'STORE_ADMIN') return '/store-dashboard';
+    if (role === 'STORE_MANAGER') {
+      return this.hasStoreScope() ? '/store-dashboard' : '/account-access';
     }
-    if (this.canRefund()) return '/cashier';
-    if (this.canViewShiftSummary()) return '/shift-summary';
-    if (this.canAccessCustomers()) return '/customers';
+    if (role === 'BRANCH_MANAGER') {
+      return this.hasBranchScope() ? '/store-dashboard' : '/account-access';
+    }
+    if (role === 'BRANCH_CASHIER') {
+      return this.hasBranchScope() ? '/cashier' : '/account-access';
+    }
     return '/account-access';
   });
 
@@ -95,13 +116,11 @@ export class AuthService {
   }
 
   logout() {
-    this.removeItem(TOKEN_KEY);
-    this.removeItem(USER_KEY);
-    this.removeItem(STORE_STATUS_KEY);
+    this.clearAuthAndTenantState();
     this._token.set(null);
     this._user.set(null);
     this._storeStatus.set(null);
-    this.router.navigate(['/login']);
+    void this.router.navigate(['/login']).catch(() => false);
   }
 
   private saveAuth(response: AuthResponse): void {
@@ -129,6 +148,59 @@ export class AuthService {
   private removeItem(key: string): void {
     if (this.isBrowser) {
       localStorage.removeItem(key);
+    }
+  }
+
+  private getStoredUser(): AuthResponse['user'] | null {
+    try {
+      const value = this.getItem(USER_KEY);
+      return value ? (JSON.parse(value) as AuthResponse['user']) : null;
+    } catch {
+      this.removeItem(USER_KEY);
+      return null;
+    }
+  }
+
+  private getValidStoredToken(): string | null {
+    const token = this.getItem(TOKEN_KEY);
+    if (!token) return null;
+
+    const parts = token.split('.');
+    if (parts.length !== 3) return token;
+
+    try {
+      const payload = JSON.parse(
+        decodeURIComponent(
+          atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+            .split('')
+            .map((character) => `%${character.charCodeAt(0).toString(16).padStart(2, '0')}`)
+            .join(''),
+        ),
+      ) as { exp?: number };
+      if (typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now()) {
+        this.removeItem(TOKEN_KEY);
+        this.removeItem(USER_KEY);
+        this.removeItem(STORE_STATUS_KEY);
+        return null;
+      }
+    } catch {
+      return token;
+    }
+    return token;
+  }
+
+  private clearAuthAndTenantState(): void {
+    if (!this.isBrowser) return;
+    this.removeItem(TOKEN_KEY);
+    this.removeItem(USER_KEY);
+    this.removeItem(STORE_STATUS_KEY);
+    for (let index = localStorage.length - 1; index >= 0; index--) {
+      const key = localStorage.key(index);
+      if (key?.startsWith('cms_')) localStorage.removeItem(key);
+    }
+    for (let index = sessionStorage.length - 1; index >= 0; index--) {
+      const key = sessionStorage.key(index);
+      if (key?.startsWith('cms_')) sessionStorage.removeItem(key);
     }
   }
 }
