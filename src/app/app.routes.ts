@@ -66,5 +66,5 @@ export const routes: Routes = [
     children: [{ path: ':id', component: CustomerDetail }],
   },
   { path: '', pathMatch: 'full', canActivate: [authGuard, landingGuard], component: ShiftSummary },
-  { path: '**', redirectTo: 'shift-summary' },
+  { path: '**', redirectTo: '' },
 ];

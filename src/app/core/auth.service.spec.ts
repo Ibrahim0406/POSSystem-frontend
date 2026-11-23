@@ -128,4 +128,53 @@ describe('AuthService', () => {
     expect(auth.storeStatus()).toBeNull();
     expect(auth.homeRoute()).toBe('/account-access');
   });
+
+  it('routes store managers to the store workspace with store scope', () => {
+    auth.login('manager@example.com', 'password').subscribe();
+    http.expectOne('/auth/signin').flush({
+      jwt: 'manager-token',
+      storeStatus: 'ACTIVE',
+      user: {
+        id: 5,
+        fullName: 'Store Manager',
+        email: 'manager@example.com',
+        role: 'ROLE_STORE_MANAGER',
+        storeId: 9,
+      },
+    });
+
+    expect(auth.homeRoute()).toBe('/store-dashboard');
+  });
+
+  it('routes branch managers to the branch workspace with branch scope', () => {
+    auth.login('branch-manager@example.com', 'password').subscribe();
+    http.expectOne('/auth/signin').flush({
+      jwt: 'branch-manager-token',
+      storeStatus: 'ACTIVE',
+      user: {
+        id: 6,
+        fullName: 'Branch Manager',
+        email: 'branch-manager@example.com',
+        role: 'ROLE_BRANCH_MANAGER',
+        branchId: 7,
+        storeId: 9,
+      },
+    });
+
+    expect(auth.homeRoute()).toBe('/store-dashboard');
+  });
+
+  it('logout clears auth keys and tenant-scoped localStorage state', () => {
+    localStorage.setItem('cms_jwt', 'token');
+    localStorage.setItem('cms_user', '{}');
+    localStorage.setItem('cms_store_status', 'ACTIVE');
+    localStorage.setItem('cms_cart', 'tenant-data');
+    auth.logout();
+
+    expect(localStorage.getItem('cms_jwt')).toBeNull();
+    expect(localStorage.getItem('cms_user')).toBeNull();
+    expect(localStorage.getItem('cms_store_status')).toBeNull();
+    expect(localStorage.getItem('cms_cart')).toBeNull();
+    expect(auth.isLoggedIn()).toBe(false);
+  });
 });
