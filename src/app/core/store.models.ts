@@ -89,6 +89,7 @@ export interface StoreEmployeeRequest {
   password?: string;
   role: StoreUserRole;
   branchId?: number;
+  status?: 'ACTIVE' | 'DISABLED';
 }
 
 export interface StoreOrder {

@@ -11,6 +11,9 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   if (status === 403) {
     return 'Access denied. The requested data was cleared. Contact your administrator if you believe this is incorrect.';
   }
+  if (status === 404) {
+    return 'Resource unavailable. It may belong to another store or branch.';
+  }
   if (status === 401) {
     return 'Your session is no longer valid. Sign in again to continue.';
   }

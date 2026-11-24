@@ -19,6 +19,8 @@ import { AuthService } from '../../core/auth.service';
 import { apiErrorMessage } from '../../core/api-error-message';
 import { toDate } from '../../core/loyalty';
 import { StoreOperationsService } from '../../core/store-operations.service';
+import { CustomerService } from '../../core/customer.service';
+import { Customer } from '../../core/models';
 import {
   BranchRequest,
   InventoryRecord,
@@ -39,6 +41,7 @@ type DashboardSection =
   | 'branches'
   | 'catalog'
   | 'inventory'
+  | 'customers'
   | 'employees'
   | 'orders'
   | 'refunds'
@@ -99,6 +102,7 @@ function blankEmployee(role: StoreUserRole): EmployeeDraft {
 })
 export class StoreDashboard {
   private readonly api = inject(StoreOperationsService);
+  private readonly customersApi = inject(CustomerService);
   private readonly auth = inject(AuthService);
   private readonly refreshKey = signal(0);
   private branchRequestId = 0;
@@ -113,6 +117,7 @@ export class StoreDashboard {
   readonly orders = signal<StoreOrder[]>([]);
   readonly refunds = signal<StoreRefund[]>([]);
   readonly reports = signal<StoreShiftReport[]>([]);
+  readonly customers = signal<Customer[]>([]);
   readonly section = signal<DashboardSection>('overview');
   readonly loading = signal(true);
   readonly branchLoading = signal(false);
@@ -146,6 +151,7 @@ export class StoreDashboard {
   readonly canManageBranches = computed(() => this.canManageCatalog() || this.isBranchManager());
   readonly canManageInventory = computed(() => this.canManageBranches());
   readonly canManageEmployees = computed(() => this.canManageBranches());
+  readonly canViewCustomers = computed(() => this.isStoreManager() || this.isStoreAdmin());
   readonly workingDays = WORKING_DAYS;
 
   constructor() {
@@ -162,9 +168,15 @@ export class StoreDashboard {
     this.section.set(section);
     this.actionError.set('');
     this.notice.set('');
+    if (section === 'customers' && this.canViewCustomers()) this.loadCustomers();
   }
 
   selectBranch(value: string): void {
+    if (value === 'all') {
+      this.selectedBranchId.set(null);
+      this.loadAllBranchData();
+      return;
+    }
     const branchId = Number(value);
     if (!Number.isInteger(branchId) || !this.branches().some((branch) => branch.id === branchId)) {
       return;
@@ -393,8 +405,9 @@ export class StoreDashboard {
 
   canEditEmployee(employee: StoreEmployee): boolean {
     if (employee.role === 'ROLE_STORE_ADMIN') return false;
+    if (employee.role === 'ROLE_STORE_MANAGER') return false;
     if (this.isBranchManager()) return employee.role === 'ROLE_BRANCH_CASHIER';
-    if (this.isStoreManager()) return employee.role !== 'ROLE_STORE_MANAGER';
+    if (this.isStoreManager()) return true;
     return true;
   }
 
@@ -416,6 +429,26 @@ export class StoreDashboard {
       role: employee.role,
       branchId: employee.branchId == null ? '' : String(employee.branchId),
     });
+  }
+
+  toggleEmployeeStatus(employee: StoreEmployee): void {
+    if (!this.canEditEmployee(employee)) return;
+    const status = (employee.status || 'ACTIVE') === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+    if (status === 'DISABLED' && !window.confirm(`Deactivate ${employee.fullName}?`)) return;
+
+    const payload: StoreEmployeeRequest = {
+      fullName: employee.fullName,
+      email: employee.email,
+      phone: employee.phone ?? '',
+      role: employee.role,
+      status,
+      ...(employee.branchId != null ? { branchId: employee.branchId } : {}),
+    };
+    this.mutate(
+      this.api.updateEmployee(employee.id, payload),
+      status === 'DISABLED' ? 'Employee deactivated.' : 'Employee activated.',
+      () => this.refreshWorkspace(),
+    );
     this.showEmployeeForm.set(true);
   }
 
@@ -433,6 +466,10 @@ export class StoreDashboard {
     const branchId = Number(draft.branchId || this.selectedBranchId());
     const editing = this.employeeEditing();
     const isStoreManagerRole = draft.role === 'ROLE_STORE_MANAGER';
+    if (this.isStoreManager() && !['ROLE_BRANCH_MANAGER', 'ROLE_BRANCH_CASHIER'].includes(draft.role)) {
+      this.actionError.set('Store Managers can only manage Branch Managers and Branch Cashiers.');
+      return;
+    }
     if (
       !storeId ||
       !draft.fullName.trim() ||
@@ -596,6 +633,47 @@ export class StoreDashboard {
     );
   }
 
+  private loadAllBranchData(): void {
+    const scope = this.auth.scopeKey();
+    const branches = this.branches();
+    if (!branches.length) {
+      this.inventory.set([]);
+      this.orders.set([]);
+      this.refunds.set([]);
+      this.reports.set([]);
+      return;
+    }
+    this.branchLoading.set(true);
+    forkJoin(
+      branches.map((branch) =>
+        forkJoin({
+          inventory: this.api.getInventory(branch.id),
+          orders: this.api.getOrders(branch.id),
+          refunds: this.api.getRefunds(branch.id),
+          reports: this.api.getShiftReports(branch.id),
+        }),
+      ),
+    )
+      .pipe(finalize(() => this.branchLoading.set(false)))
+      .subscribe({
+        next: (results) => {
+          if (scope !== this.auth.scopeKey() || this.selectedBranchId() !== null) return;
+          this.inventory.set(results.flatMap((result) => result.inventory));
+          this.orders.set(results.flatMap((result) => result.orders));
+          this.refunds.set(results.flatMap((result) => result.refunds));
+          this.reports.set(results.flatMap((result) => result.reports));
+        },
+        error: (error: unknown) => {
+          if (scope !== this.auth.scopeKey()) return;
+          this.inventory.set([]);
+          this.orders.set([]);
+          this.refunds.set([]);
+          this.reports.set([]);
+          this.handleError(error, 'Unable to load data for the store branches.');
+        },
+      });
+  }
+
   private loadBranchData(branchId: number): void {
     const requestId = ++this.branchRequestId;
     const scope = this.auth.scopeKey();
@@ -604,6 +682,7 @@ export class StoreDashboard {
     this.orders.set([]);
     this.refunds.set([]);
     this.reports.set([]);
+    this.customers.set([]);
     this.inventoryDrafts.set({});
     forkJoin({
       inventory: this.api.getInventory(branchId),
@@ -643,6 +722,21 @@ export class StoreDashboard {
           this.handleError(error, 'Unable to load this branch data.');
         },
       });
+  }
+
+  private loadCustomers(): void {
+    const scope = this.auth.scopeKey();
+    this.customers.set([]);
+    this.customersApi.getAll().subscribe({
+      next: (customers) => {
+        if (scope === this.auth.scopeKey()) this.customers.set(customers);
+      },
+      error: (error: unknown) => {
+        if (scope !== this.auth.scopeKey()) return;
+        this.customers.set([]);
+        this.handleError(error, 'Store customers could not be loaded.');
+      },
+    });
   }
 
   private mutate<T>(request: Observable<T>, success: string, afterSuccess: () => void): void {

@@ -15,10 +15,13 @@
       <label class="branch-picker">
         <span>Branch</span>
         <select
-          [value]="selectedBranchId() ?? ''"
+          [value]="isBranchManager() ? (selectedBranchId() ?? '') : (selectedBranchId() ?? 'all')"
           (change)="selectBranch($any($event.target).value)"
           [disabled]="isBranchManager()"
         >
+          @if (!isBranchManager()) {
+            <option value="all">Sve poslovnice</option>
+          }
           @for (branch of branches(); track branch.id) {
             <option [value]="branch.id">{{ branch.name }}</option>
           }
@@ -86,6 +89,17 @@
         (click)="selectSection('employees')"
       >
         Employees
+      </button>
+    }
+    @if (canViewCustomers()) {
+      <button
+        hlmBtn
+        variant="ghost"
+        type="button"
+        [class.active]="section() === 'customers'"
+        (click)="selectSection('customers')"
+      >
+        Customers
       </button>
     }
     <button hlmBtn variant="ghost" type="button" [class.active]="section() === 'orders'" (click)="selectSection('orders')">
@@ -718,6 +732,15 @@
                         >
                           Edit
                         </button>
+                          <button
+                            hlmBtn
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            (click)="toggleEmployeeStatus(employee)"
+                          >
+                            {{ (employee.status || 'ACTIVE') === 'ACTIVE' ? 'Deactivate' : 'Activate' }}
+                          </button>
                         <button
                           hlmBtn
                           variant="destructive"
@@ -731,6 +754,41 @@
                         <span class="muted small-text">Not manageable</span>
                       }
                     </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+
+    @if (section() === 'customers' && canViewCustomers()) {
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Store customers</h2>
+            <p class="muted">Customers visible to your assigned store.</p>
+          </div>
+        </div>
+        @if (!customers().length) {
+          <div class="empty">No customers found.</div>
+        } @else {
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (customer of customers(); track customer.id) {
+                  <tr>
+                    <td>{{ customer.fullName }}</td>
+                    <td>{{ customer.phone || '—' }}</td>
+                    <td>{{ customer.email || '—' }}</td>
                   </tr>
                 }
               </tbody>
