@@ -2,12 +2,26 @@
   <header class="workspace-header">
     <div>
       <p class="eyebrow">Store workspace</p>
-      <h1>{{ store()?.brand || 'Store dashboard' }}</h1>
+      <h1>
+        {{
+          isBranchManager()
+            ? branches()[0]?.name || 'Branch dashboard'
+            : store()?.brand || 'Store dashboard'
+        }}
+      </h1>
       <p class="muted">
         @if (store()) {
-          {{ store()?.description || 'Manage your store operations and branches.' }}
+          {{
+            isBranchManager()
+              ? 'Manage inventory and activity for your assigned branch.'
+              : store()?.description || 'Manage your store operations and branches.'
+          }}
         } @else {
-          Manage your store operations and branches.
+          {{
+            isBranchManager()
+              ? 'Manage inventory and activity for your assigned branch.'
+              : 'Manage your store operations and branches.'
+          }}
         }
       </p>
     </div>
@@ -102,7 +116,13 @@
         Customers
       </button>
     }
-    <button hlmBtn variant="ghost" type="button" [class.active]="section() === 'orders'" (click)="selectSection('orders')">
+    <button
+      hlmBtn
+      variant="ghost"
+      type="button"
+      [class.active]="section() === 'orders'"
+      (click)="selectSection('orders')"
+    >
       Orders
     </button>
     <button
@@ -131,8 +151,8 @@
     @if (section() === 'overview') {
       <section class="overview-grid" aria-label="Store overview">
         <article class="metric">
-          <span class="muted">Branches</span>
-          <strong>{{ branches().length }}</strong>
+          <span class="muted">{{ isBranchManager() ? 'Assigned branch' : 'Branches' }}</span>
+          <strong>{{ isBranchManager() ? branches()[0]?.name : branches().length }}</strong>
         </article>
         @if (canManageCatalog()) {
           <article class="metric">
@@ -157,11 +177,7 @@
             <h2>No branches yet</h2>
             <p>Create your first branch to manage stock and branch activity.</p>
             @if (canCreateBranch()) {
-              <button
-                hlmBtn
-                type="button"
-                (click)="selectSection('branches'); openCreateBranch()"
-              >
+              <button hlmBtn type="button" (click)="selectSection('branches'); openCreateBranch()">
                 Create branch
               </button>
             }
@@ -274,7 +290,13 @@
                     <td>{{ branch.workingDays.join(', ') }}</td>
                     <td>{{ timeInput(branch.openTime) }}–{{ timeInput(branch.closeTime) }}</td>
                     <td class="row-actions">
-                      <button hlmBtn variant="outline" size="sm" type="button" (click)="editBranch(branch)">
+                      <button
+                        hlmBtn
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        (click)="editBranch(branch)"
+                      >
                         Edit
                       </button>
                       <button
@@ -330,7 +352,12 @@
                   />
                 </label>
                 <div class="actions">
-                  <button hlmBtn variant="outline" type="button" (click)="showCategoryForm.set(false)">
+                  <button
+                    hlmBtn
+                    variant="outline"
+                    type="button"
+                    (click)="showCategoryForm.set(false)"
+                  >
                     Cancel
                   </button>
                   <button hlmBtn type="submit" [disabled]="actionBusy()">Save</button>
@@ -469,7 +496,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (product of products(); track product.id) {
+                @for (product of availableProducts(); track product.id) {
                   <tr>
                     <td>
                       <strong>{{ product.name }}</strong
@@ -479,7 +506,13 @@
                     <td>{{ product.category?.name || '—' }}</td>
                     <td>{{ product.sellingPrice | currency: 'BAM' }}</td>
                     <td class="row-actions">
-                      <button hlmBtn variant="outline" size="sm" type="button" (click)="editProduct(product)">
+                      <button
+                        hlmBtn
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        (click)="editProduct(product)"
+                      >
                         Edit
                       </button>
                       <button
@@ -590,7 +623,7 @@
                   (change)="inventoryProductId.set($any($event.target).value)"
                 >
                   <option value="">Choose product</option>
-                  @for (product of products(); track product.id) {
+                  @for (product of availableProducts(); track product.id) {
                     <option [value]="product.id">{{ product.name }} · {{ product.sku }}</option>
                   }
                 </select>
@@ -652,6 +685,7 @@
                 <select
                   [value]="employeeDraft().role"
                   (change)="updateEmployeeField('role', $any($event.target).value)"
+                  [disabled]="isBranchManager()"
                 >
                   @for (
                     role of employeeEditing() ? employeeRolesForEdit() : employeeRolesForCreation();
@@ -663,7 +697,7 @@
                   }
                 </select>
               </label>
-              @if (employeeDraft().role !== 'ROLE_STORE_MANAGER') {
+              @if (employeeDraft().role !== 'ROLE_STORE_MANAGER' && !isBranchManager()) {
                 <label>
                   Branch
                   <select
@@ -678,6 +712,9 @@
                     }
                   </select>
                 </label>
+              }
+              @if (isBranchManager()) {
+                <p class="muted">Branch: {{ branches()[0]?.name || 'Assigned branch' }}</p>
               }
               <label>
                 {{ employeeEditing() ? 'New password (optional)' : 'Password' }}
@@ -732,24 +769,28 @@
                         >
                           Edit
                         </button>
-                          <button
-                            hlmBtn
-                            variant="outline"
-                            size="sm"
-                            type="button"
-                            (click)="toggleEmployeeStatus(employee)"
-                          >
-                            {{ (employee.status || 'ACTIVE') === 'ACTIVE' ? 'Deactivate' : 'Activate' }}
-                          </button>
                         <button
                           hlmBtn
-                          variant="destructive"
+                          variant="outline"
                           size="sm"
                           type="button"
-                          (click)="requestDelete({ type: 'employee', id: employee.id })"
+                          (click)="toggleEmployeeStatus(employee)"
                         >
-                          Delete
+                          {{
+                            (employee.status || 'ACTIVE') === 'ACTIVE' ? 'Deactivate' : 'Activate'
+                          }}
                         </button>
+                        @if (!isBranchManager()) {
+                          <button
+                            hlmBtn
+                            variant="destructive"
+                            size="sm"
+                            type="button"
+                            (click)="requestDelete({ type: 'employee', id: employee.id })"
+                          >
+                            Delete
+                          </button>
+                        }
                       } @else {
                         <span class="muted small-text">Not manageable</span>
                       }
@@ -806,9 +847,23 @@
             <p class="muted">Orders for the selected branch.</p>
           </div>
         </div>
+        @if (isBranchManager()) {
+          <label class="branch-picker">
+            <span>Filter by cashier</span>
+            <select
+              [value]="cashierFilter()"
+              (change)="cashierFilter.set($any($event.target).value)"
+            >
+              <option value="all">All cashiers</option>
+              @for (cashier of employees(); track cashier.id) {
+                <option [value]="cashier.id">{{ cashier.fullName }}</option>
+              }
+            </select>
+          </label>
+        }
         @if (branchLoading()) {
           <div class="empty">Loading orders…</div>
-        } @else if (!orders().length) {
+        } @else if (!filteredOrders().length) {
           <div class="empty">No orders found.</div>
         } @else {
           <div class="table-wrap">
@@ -825,7 +880,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (order of orders(); track order.id) {
+                @for (order of filteredOrders(); track order.id) {
                   <tr>
                     <td>#{{ order.id }}</td>
                     <td>{{ date(order.createdAt) | date: 'medium' }}</td>
@@ -851,9 +906,23 @@
             <p class="muted">Refunds for the selected branch.</p>
           </div>
         </div>
+        @if (isBranchManager()) {
+          <label class="branch-picker">
+            <span>Filter by cashier</span>
+            <select
+              [value]="cashierFilter()"
+              (change)="cashierFilter.set($any($event.target).value)"
+            >
+              <option value="all">All cashiers</option>
+              @for (cashier of employees(); track cashier.id) {
+                <option [value]="cashier.id">{{ cashier.fullName }}</option>
+              }
+            </select>
+          </label>
+        }
         @if (branchLoading()) {
           <div class="empty">Loading refunds…</div>
-        } @else if (!refunds().length) {
+        } @else if (!filteredRefunds().length) {
           <div class="empty">No refunds found.</div>
         } @else {
           <div class="table-wrap">
@@ -870,7 +939,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (refund of refunds(); track refund.id) {
+                @for (refund of filteredRefunds(); track refund.id) {
                   <tr>
                     <td>#{{ refund.id }}</td>
                     <td>{{ date(refund.createdAt) | date: 'medium' }}</td>
@@ -901,6 +970,23 @@
         } @else if (!reports().length) {
           <div class="empty">No shift reports found.</div>
         } @else {
+          @if (isBranchManager()) {
+            <section class="subpanel" aria-labelledby="active-shifts-title">
+              <h3 id="active-shifts-title">Active cashier shifts</h3>
+              @if (!activeReports().length) {
+                <p class="muted">No active shifts in your branch.</p>
+              } @else {
+                <ul>
+                  @for (report of activeReports(); track report.id) {
+                    <li>
+                      {{ report.cashier?.fullName || 'Cashier' }} · started
+                      {{ date(report.shiftStart) | date: 'medium' }}
+                    </li>
+                  }
+                </ul>
+              }
+            </section>
+          }
           <div class="table-wrap">
             <table>
               <thead>
@@ -952,7 +1038,13 @@
         <p>This action cannot be undone.</p>
         <div class="actions">
           <button hlmBtn variant="outline" type="button" (click)="cancelDelete()">Cancel</button>
-          <button hlmBtn variant="destructive" type="button" [disabled]="actionBusy()" (click)="confirmDelete()">
+          <button
+            hlmBtn
+            variant="destructive"
+            type="button"
+            [disabled]="actionBusy()"
+            (click)="confirmDelete()"
+          >
             {{ actionBusy() ? 'Deleting…' : 'Delete' }}
           </button>
         </div>

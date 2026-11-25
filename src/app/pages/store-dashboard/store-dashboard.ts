@@ -8,7 +8,6 @@ import {
   distinctUntilChanged,
   finalize,
   forkJoin,
-  map,
   of,
   switchMap,
   tap,
@@ -106,6 +105,7 @@ export class StoreDashboard {
   private readonly auth = inject(AuthService);
   private readonly refreshKey = signal(0);
   private branchRequestId = 0;
+  private branchCatalogProducts: StoreProduct[] = [];
 
   readonly store = signal<StoreRecord | null>(null);
   readonly branches = signal<StoreBranch[]>([]);
@@ -117,6 +117,7 @@ export class StoreDashboard {
   readonly orders = signal<StoreOrder[]>([]);
   readonly refunds = signal<StoreRefund[]>([]);
   readonly reports = signal<StoreShiftReport[]>([]);
+  readonly cashierFilter = signal('all');
   readonly customers = signal<Customer[]>([]);
   readonly section = signal<DashboardSection>('overview');
   readonly loading = signal(true);
@@ -148,10 +149,33 @@ export class StoreDashboard {
   readonly isBranchManager = computed(() => this.role() === 'BRANCH_MANAGER');
   readonly canManageCatalog = computed(() => this.isStoreAdmin() || this.isStoreManager());
   readonly canCreateBranch = computed(() => this.canManageCatalog());
-  readonly canManageBranches = computed(() => this.canManageCatalog() || this.isBranchManager());
-  readonly canManageInventory = computed(() => this.canManageBranches());
-  readonly canManageEmployees = computed(() => this.canManageBranches());
+  readonly canManageBranches = computed(() => this.canManageCatalog());
+  readonly canManageInventory = computed(() => this.canManageCatalog() || this.isBranchManager());
+  readonly canManageEmployees = computed(() => this.canManageCatalog() || this.isBranchManager());
   readonly canViewCustomers = computed(() => this.isStoreManager() || this.isStoreAdmin());
+  readonly activeReports = computed(() => this.reports().filter((report) => !report.shiftEnd));
+  readonly filteredOrders = computed(() => {
+    const cashierId = Number(this.cashierFilter());
+    return this.cashierFilter() === 'all'
+      ? this.orders()
+      : this.orders().filter((order) => order.cashier?.id === cashierId);
+  });
+  readonly filteredRefunds = computed(() => {
+    if (this.cashierFilter() === 'all') return this.refunds();
+    const cashierId = Number(this.cashierFilter());
+    const cashier = this.employees().find((employee) => employee.id === cashierId);
+    return this.refunds().filter(
+      (refund) =>
+        refund.cashier?.id === cashierId ||
+        refund.cashierId === cashierId ||
+        (!!cashier && (refund.cashier?.fullName ?? refund.cashierName) === cashier.fullName),
+    );
+  });
+  readonly availableProducts = computed(() => {
+    if (!this.isBranchManager()) return this.products();
+    const productIds = new Set(this.inventory().map((entry) => entry.productId));
+    return this.products().filter((product) => productIds.has(product.id));
+  });
   readonly workingDays = WORKING_DAYS;
 
   constructor() {
@@ -172,6 +196,13 @@ export class StoreDashboard {
   }
 
   selectBranch(value: string): void {
+    if (this.isBranchManager()) {
+      const assignedBranchId = this.auth.user()?.branchId;
+      if (value !== String(assignedBranchId)) {
+        this.rejectScopeMismatch('Only your assigned branch is available.');
+      }
+      return;
+    }
     if (value === 'all') {
       this.selectedBranchId.set(null);
       this.loadAllBranchData();
@@ -193,6 +224,7 @@ export class StoreDashboard {
   }
 
   editBranch(branch: StoreBranch): void {
+    if (!this.canManageBranches()) return;
     this.branchEditingId.set(branch.id);
     this.branchDraft.set({
       name: branch.name ?? '',
@@ -221,6 +253,7 @@ export class StoreDashboard {
 
   saveBranch(event: Event): void {
     event.preventDefault();
+    if (!this.canManageBranches()) return;
     const storeId = this.store()?.id;
     const draft = this.branchDraft();
     if (!storeId || !draft.workingDays.length) {
@@ -252,6 +285,7 @@ export class StoreDashboard {
   }
 
   editCategory(category: StoreCategory): void {
+    if (!this.canManageCatalog()) return;
     if (!category.id) return;
     this.categoryEditing.set(category);
     this.categoryName.set(category.name);
@@ -260,6 +294,7 @@ export class StoreDashboard {
 
   saveCategory(event: Event): void {
     event.preventDefault();
+    if (!this.canManageCatalog()) return;
     const storeId = this.store()?.id;
     const name = this.categoryName().trim();
     if (!storeId || !name) return;
@@ -281,6 +316,7 @@ export class StoreDashboard {
   }
 
   editProduct(product: StoreProduct): void {
+    if (!this.canManageCatalog()) return;
     this.productEditingId.set(product.id);
     this.productDraft.set({
       sku: product.sku ?? '',
@@ -301,6 +337,7 @@ export class StoreDashboard {
 
   saveProduct(event: Event): void {
     event.preventDefault();
+    if (!this.canManageCatalog()) return;
     const storeId = this.store()?.id;
     const draft = this.productDraft();
     const sellingPrice = Number(draft.sellingPrice);
@@ -357,10 +394,11 @@ export class StoreDashboard {
     const quantity = Number(this.inventoryQuantity());
     if (
       !branchId ||
+      (this.isBranchManager() && branchId !== this.auth.user()?.branchId) ||
       !Number.isInteger(productId) ||
       !Number.isInteger(quantity) ||
       quantity < 0 ||
-      !this.products().some((product) => product.id === productId)
+      !this.availableProducts().some((product) => product.id === productId)
     ) {
       this.actionError.set('Choose a product from this store and enter a valid quantity.');
       return;
@@ -380,12 +418,20 @@ export class StoreDashboard {
   }
 
   saveInventoryQuantity(entry: InventoryRecord): void {
+    const branchId = this.selectedBranchId();
+    if (
+      !this.inventory().some((current) => current.id === entry.id) ||
+      (this.isBranchManager() &&
+        (branchId !== this.auth.user()?.branchId || entry.branchId !== branchId))
+    ) {
+      this.rejectScopeMismatch('This inventory item is not available in your assigned branch.');
+      return;
+    }
     const quantity = Number(this.inventoryDrafts()[entry.id] ?? entry.quantity);
     if (!Number.isInteger(quantity) || quantity < 0) {
       this.actionError.set('Quantity must be a non-negative whole number.');
       return;
     }
-    const branchId = this.selectedBranchId();
     this.mutate(this.api.updateInventory(entry.id, { quantity }), 'Stock quantity updated.', () => {
       if (branchId) this.loadBranchData(branchId);
     });
@@ -406,7 +452,11 @@ export class StoreDashboard {
   canEditEmployee(employee: StoreEmployee): boolean {
     if (employee.role === 'ROLE_STORE_ADMIN') return false;
     if (employee.role === 'ROLE_STORE_MANAGER') return false;
-    if (this.isBranchManager()) return employee.role === 'ROLE_BRANCH_CASHIER';
+    if (this.isBranchManager()) {
+      return (
+        employee.role === 'ROLE_BRANCH_CASHIER' && employee.branchId === this.auth.user()?.branchId
+      );
+    }
     if (this.isStoreManager()) return true;
     return true;
   }
@@ -429,6 +479,7 @@ export class StoreDashboard {
       role: employee.role,
       branchId: employee.branchId == null ? '' : String(employee.branchId),
     });
+    this.showEmployeeForm.set(true);
   }
 
   toggleEmployeeStatus(employee: StoreEmployee): void {
@@ -449,7 +500,6 @@ export class StoreDashboard {
       status === 'DISABLED' ? 'Employee deactivated.' : 'Employee activated.',
       () => this.refreshWorkspace(),
     );
-    this.showEmployeeForm.set(true);
   }
 
   updateEmployeeField(field: keyof EmployeeDraft, value: string): void {
@@ -463,19 +513,43 @@ export class StoreDashboard {
     event.preventDefault();
     const draft = this.employeeDraft();
     const storeId = this.store()?.id;
-    const branchId = Number(draft.branchId || this.selectedBranchId());
+    const assignedBranchId = this.auth.user()?.branchId;
+    const branchId = this.isBranchManager()
+      ? assignedBranchId
+      : Number(draft.branchId || this.selectedBranchId());
     const editing = this.employeeEditing();
     const isStoreManagerRole = draft.role === 'ROLE_STORE_MANAGER';
-    if (this.isStoreManager() && !['ROLE_BRANCH_MANAGER', 'ROLE_BRANCH_CASHIER'].includes(draft.role)) {
+    if (this.isBranchManager()) {
+      if (draft.role !== 'ROLE_BRANCH_CASHIER') {
+        this.actionError.set(
+          'Branch Managers can only create or edit ROLE_BRANCH_CASHIER accounts.',
+        );
+        return;
+      }
+      if (
+        !assignedBranchId ||
+        (editing &&
+          (editing.branchId !== assignedBranchId ||
+            editing.role !== 'ROLE_BRANCH_CASHIER' ||
+            !this.employees().some((employee) => employee.id === editing.id)))
+      ) {
+        this.rejectScopeMismatch('This cashier is not assigned to your branch.');
+        return;
+      }
+    }
+    if (
+      this.isStoreManager() &&
+      !['ROLE_BRANCH_MANAGER', 'ROLE_BRANCH_CASHIER'].includes(draft.role)
+    ) {
       this.actionError.set('Store Managers can only manage Branch Managers and Branch Cashiers.');
       return;
     }
     if (
-      !storeId ||
+      (!this.isBranchManager() && !storeId) ||
       !draft.fullName.trim() ||
       !draft.email.trim() ||
       (!editing && !draft.password.trim()) ||
-      (!isStoreManagerRole && (!Number.isInteger(branchId) || branchId <= 0))
+      (!isStoreManagerRole && (!Number.isInteger(branchId) || branchId! <= 0))
     ) {
       this.actionError.set('Complete the required employee details and select a branch.');
       return;
@@ -486,15 +560,20 @@ export class StoreDashboard {
       phone: draft.phone.trim(),
       role: draft.role,
       ...(draft.password.trim() ? { password: draft.password } : {}),
-      ...(!isStoreManagerRole ? { branchId } : {}),
+      ...(branchId != null && !isStoreManagerRole ? { branchId } : {}),
     };
     let request: Observable<StoreEmployee>;
     if (editing) {
       request = this.api.updateEmployee(editing.id, payload);
+    } else if (this.isBranchManager() && branchId != null) {
+      request = this.api.createBranchEmployee(branchId, {
+        ...payload,
+        role: 'ROLE_BRANCH_CASHIER',
+      });
     } else if (isStoreManagerRole) {
-      request = this.api.createStoreEmployee(storeId, payload);
+      request = this.api.createStoreEmployee(storeId!, payload);
     } else {
-      request = this.api.createBranchEmployee(branchId, payload);
+      request = this.api.createBranchEmployee(branchId!, payload);
     }
     this.mutate(request, editing ? 'Employee updated.' : 'Employee created.', () => {
       this.showEmployeeForm.set(false);
@@ -503,6 +582,17 @@ export class StoreDashboard {
   }
 
   requestDelete(target: DeleteTarget): void {
+    if (this.isBranchManager()) {
+      if (target.type !== 'inventory') {
+        this.actionError.set('Branch Managers can only remove inventory entries.');
+        return;
+      }
+      const entry = this.inventory().find((item) => item.id === target.id);
+      if (!entry || entry.branchId !== this.auth.user()?.branchId) {
+        this.rejectScopeMismatch('This inventory item is not available in your assigned branch.');
+        return;
+      }
+    }
     if (
       target.type === 'category' &&
       !this.categories().find((item) => item.id === target.id)?.id
@@ -520,6 +610,21 @@ export class StoreDashboard {
   confirmDelete(): void {
     const target = this.deleteTarget();
     if (!target) return;
+    if (this.isBranchManager() && target.type !== 'inventory') {
+      this.deleteTarget.set(null);
+      this.actionError.set('Branch Managers can only remove inventory entries.');
+      return;
+    }
+    if (
+      this.isBranchManager() &&
+      !this.inventory().some(
+        (entry) => entry.id === target.id && entry.branchId === this.auth.user()?.branchId,
+      )
+    ) {
+      this.deleteTarget.set(null);
+      this.rejectScopeMismatch('This inventory item is not available in your assigned branch.');
+      return;
+    }
     const requests: Record<DeleteTarget['type'], (id: number) => Observable<unknown>> = {
       branch: (id) => this.api.deleteBranch(id),
       product: (id) => this.api.deleteProduct(id),
@@ -578,36 +683,27 @@ export class StoreDashboard {
       return EMPTY;
     }
     const scope = this.auth.scopeKey();
+    if (role === 'BRANCH_MANAGER') {
+      return this.loadBranchManagerWorkspace(scope, this.auth.user()!.branchId!);
+    }
     const storeRequest =
       role === 'STORE_ADMIN' ? this.api.getStoreForAdmin() : this.api.getStoreForEmployee();
 
     return storeRequest.pipe(
       tap((store) => this.store.set(store)),
       switchMap((store) => {
-        const branchesRequest =
-          role === 'BRANCH_MANAGER'
-            ? this.auth.user()?.branchId
-              ? this.api.getBranch(this.auth.user()!.branchId!).pipe(map((branch) => [branch]))
-              : of([] as StoreBranch[])
-            : this.api.getBranches(store.id);
-        return branchesRequest.pipe(
+        return this.api.getBranches(store.id).pipe(
           switchMap((branches) => {
             if (scope !== this.auth.scopeKey()) return EMPTY;
             this.branches.set(branches);
-            const assignedBranchId = this.auth.user()?.branchId;
-            const selected =
-              branches.find((branch) => branch.id === assignedBranchId) ?? branches[0] ?? null;
+            const selected = branches[0] ?? null;
             this.selectedBranchId.set(selected?.id ?? null);
 
             const productsRequest = this.api.getProducts(store.id);
             const categoriesRequest = this.canManageCatalog()
               ? this.api.getCategories(store.id)
               : of([] as StoreCategory[]);
-            const employeesRequest = this.isBranchManager()
-              ? selected
-                ? this.api.getBranchEmployees(selected.id)
-                : of([] as StoreEmployee[])
-              : this.api.getStoreEmployees(store.id);
+            const employeesRequest = this.api.getStoreEmployees(store.id);
 
             return forkJoin({
               products: productsRequest,
@@ -627,6 +723,58 @@ export class StoreDashboard {
       }),
       catchError((error: unknown) => {
         this.handleError(error, 'Unable to load this store workspace.');
+        return EMPTY;
+      }),
+      finalize(() => this.loading.set(false)),
+    );
+  }
+
+  private loadBranchManagerWorkspace(scope: string, branchId: number): Observable<unknown> {
+    const assignedStoreId = this.auth.user()?.storeId;
+    this.branchCatalogProducts = [];
+    return this.api.getBranch(branchId).pipe(
+      switchMap((branch) => {
+        if (scope !== this.auth.scopeKey()) return EMPTY;
+        if (
+          branch.id !== branchId ||
+          (assignedStoreId != null && branch.storeId !== assignedStoreId)
+        ) {
+          this.rejectScopeMismatch(
+            'The assigned branch response does not match your account scope.',
+          );
+          return EMPTY;
+        }
+
+        this.branches.set([branch]);
+        this.selectedBranchId.set(branch.id);
+        return forkJoin({
+          products: this.api.getProducts(branch.storeId),
+          employees: this.api.getBranchEmployees(branch.id, 'ROLE_BRANCH_CASHIER'),
+        }).pipe(
+          switchMap((result) => {
+            if (scope !== this.auth.scopeKey()) return EMPTY;
+            if (
+              result.employees.some(
+                (employee) =>
+                  employee.branchId !== branch.id || employee.role !== 'ROLE_BRANCH_CASHIER',
+              )
+            ) {
+              this.rejectScopeMismatch(
+                'The employee list contains accounts outside your branch scope.',
+              );
+              return EMPTY;
+            }
+            this.employees.set(result.employees);
+            this.branchCatalogProducts = result.products.filter(
+              (product) => product.storeId === branch.storeId,
+            );
+            this.loadBranchData(branch.id, this.branchCatalogProducts);
+            return of(result);
+          }),
+        );
+      }),
+      catchError((error: unknown) => {
+        this.handleError(error, 'Unable to load your assigned branch workspace.');
         return EMPTY;
       }),
       finalize(() => this.loading.set(false)),
@@ -674,7 +822,11 @@ export class StoreDashboard {
       });
   }
 
-  private loadBranchData(branchId: number): void {
+  private loadBranchData(branchId: number, catalogProducts?: StoreProduct[]): void {
+    if (this.isBranchManager() && branchId !== this.auth.user()?.branchId) {
+      this.rejectScopeMismatch('Only your assigned branch is available.');
+      return;
+    }
     const requestId = ++this.branchRequestId;
     const scope = this.auth.scopeKey();
     this.branchLoading.set(true);
@@ -703,7 +855,22 @@ export class StoreDashboard {
             branchId !== this.selectedBranchId()
           )
             return;
+          if (
+            this.isBranchManager() &&
+            this.hasIncompatibleBranchData(branchId, data, catalogProducts)
+          ) {
+            this.rejectScopeMismatch(
+              'The branch data contains resources outside your assigned branch.',
+            );
+            return;
+          }
           this.inventory.set(data.inventory);
+          if (catalogProducts) {
+            const branchProductIds = new Set(data.inventory.map((entry) => entry.productId));
+            this.products.set(
+              catalogProducts.filter((product) => branchProductIds.has(product.id)),
+            );
+          }
           this.orders.set(data.orders);
           this.refunds.set(data.refunds);
           this.reports.set(data.reports);
@@ -722,6 +889,46 @@ export class StoreDashboard {
           this.handleError(error, 'Unable to load this branch data.');
         },
       });
+  }
+
+  private hasIncompatibleBranchData(
+    branchId: number,
+    data: {
+      inventory: InventoryRecord[];
+      orders: StoreOrder[];
+      refunds: StoreRefund[];
+      reports: StoreShiftReport[];
+    },
+    catalogProducts?: StoreProduct[],
+  ): boolean {
+    const storeId = this.branches()[0]?.storeId;
+    const productIds = new Set(
+      (catalogProducts ?? this.branchCatalogProducts).map((product) => product.id),
+    );
+    const isWrongBranch = (resource: {
+      branchId?: number | null;
+      branch?: StoreBranch | null;
+      cashier?: { branchId?: number | null } | null;
+    }) =>
+      (resource.branchId != null && resource.branchId !== branchId) ||
+      (resource.branch != null &&
+        (resource.branch.id !== branchId ||
+          (storeId != null && resource.branch.storeId !== storeId))) ||
+      (resource.cashier?.branchId != null && resource.cashier.branchId !== branchId);
+
+    return (
+      data.inventory.some(
+        (entry) =>
+          entry.branchId !== branchId ||
+          !productIds.has(entry.productId) ||
+          (entry.product != null &&
+            (entry.product.id !== entry.productId ||
+              (storeId != null && entry.product.storeId !== storeId))),
+      ) ||
+      data.orders.some((order) => order.branchId !== branchId || isWrongBranch(order)) ||
+      data.refunds.some(isWrongBranch) ||
+      data.reports.some(isWrongBranch)
+    );
   }
 
   private loadCustomers(): void {
@@ -755,9 +962,18 @@ export class StoreDashboard {
   private handleError(error: unknown, fallback: string): void {
     const message = apiErrorMessage(error, fallback);
     this.actionError.set(message);
-    if (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)) {
+    if (
+      error instanceof HttpErrorResponse &&
+      (error.status === 401 || error.status === 403 || error.status === 404)
+    ) {
       this.clearTenantData();
+      this.actionError.set(message);
     }
+  }
+
+  private rejectScopeMismatch(message: string): void {
+    this.clearTenantData();
+    this.actionError.set(message);
   }
 
   private clearTenantData(): void {
@@ -792,6 +1008,9 @@ export class StoreDashboard {
     this.orders.set([]);
     this.refunds.set([]);
     this.reports.set([]);
+    this.customers.set([]);
+    this.cashierFilter.set('all');
+    this.branchCatalogProducts = [];
   }
 
   private refreshWorkspace(): void {

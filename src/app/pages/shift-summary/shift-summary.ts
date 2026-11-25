@@ -27,6 +27,7 @@ export class ShiftSummary {
   readonly loading = signal(true);
   readonly ending = signal(false);
   readonly starting = signal(false);
+  readonly canStartShift = signal(false);
   readonly error = signal('');
   readonly actionError = signal('');
   readonly date = toDate;
@@ -41,7 +42,7 @@ export class ShiftSummary {
     }
 
     const report = this.report();
-    if (!report) return this.loading() ? 'Loading…' : 'No report';
+    if (!report) return this.loading() ? 'Loading…' : 'No active shift';
     return report.shiftEnd ? 'Shift completed' : 'Shift in progress';
   });
   readonly totalOrders = computed(() => this.report()?.totalOrders ?? 0);
@@ -93,6 +94,7 @@ export class ShiftSummary {
     this.loading.set(true);
     this.error.set('');
     this.report.set(null);
+    this.canStartShift.set(false);
     this.branchReports.set([]);
     const scope = this.auth.scopeKey();
 
@@ -125,20 +127,33 @@ export class ShiftSummary {
 
     const cashierId = this.auth.user()?.id;
     let historyRequestFailed = false;
+    let historyAuthorizationFailed = false;
     let historyRequestError = '';
+    let currentRequestFailed = false;
+    let currentRequestNotFound = false;
     const latestReport = cashierId
       ? this.api.getByCashier(cashierId).pipe(
-        map((reports) =>
-          [...reports].sort(
+          map(
+            (reports) =>
+              [...reports].sort(
                 (a, b) => this.timestamp(b.shiftStart) - this.timestamp(a.shiftStart),
               )[0] ?? null,
           ),
-        catchError((error: unknown) => {
+          catchError((error: unknown) => {
+            if (error instanceof HttpErrorResponse && error.status === 404) {
+              return of(null);
+            }
+            if (
+              error instanceof HttpErrorResponse &&
+              (error.status === 401 || error.status === 403)
+            ) {
+              historyAuthorizationFailed = true;
+            }
             historyRequestFailed = true;
-          historyRequestError = apiErrorMessage(
-            error,
-            'Unable to load the shift report. Check that the backend is running and you are signed in.',
-          );
+            historyRequestError = apiErrorMessage(
+              error,
+              'Unable to load the shift report. Check that the backend is running and you are signed in.',
+            );
             return of(null);
           }),
         )
@@ -148,34 +163,49 @@ export class ShiftSummary {
       .getCurrent()
       .pipe(
         catchError((error: unknown) => {
-        if (
-          error instanceof HttpErrorResponse &&
-          (error.status === 401 || error.status === 403)
-        ) {
-          return throwError(() => error);
-        }
-        return latestReport;
+          if (
+            error instanceof HttpErrorResponse &&
+            (error.status === 401 || error.status === 403)
+          ) {
+            return throwError(() => error);
+          }
+          if (error instanceof HttpErrorResponse && error.status === 404) {
+            currentRequestNotFound = true;
+          } else currentRequestFailed = true;
+          return latestReport;
         }),
         finalize(() => this.loading.set(false)),
       )
       .subscribe({
         next: (report) => {
-        if (scope !== this.auth.scopeKey()) return;
-        this.report.set(report);
-        if (!report) {
-          this.error.set(
-            historyRequestFailed
-              ? historyRequestError
-              : 'No shift report was found for this cashier. Start a shift and try again.',
+          if (scope !== this.auth.scopeKey()) return;
+          const currentReport =
+            currentRequestNotFound && report && !report.shiftEnd ? null : report;
+          this.report.set(currentReport);
+          this.canStartShift.set(
+            !historyAuthorizationFailed && (!currentReport || currentReport.shiftEnd != null),
           );
-        }
+          if (!currentReport) {
+            this.error.set(
+              historyAuthorizationFailed
+                ? historyRequestError
+                : currentRequestFailed
+                  ? 'Could not confirm an active shift. You can try starting one; the server will validate the request.'
+                  : currentRequestNotFound
+                    ? 'No active shift was found. Start a shift to begin.'
+                    : historyRequestFailed
+                      ? historyRequestError
+                      : 'No shift report was found for this cashier. Start a shift and try again.',
+            );
+          }
         },
         error: (error: unknown) => {
-        if (scope !== this.auth.scopeKey()) return;
-        this.report.set(null);
-        this.error.set(
-          apiErrorMessage(error, 'Unable to load the shift report. Please try again.'),
-        );
+          if (scope !== this.auth.scopeKey()) return;
+          this.report.set(null);
+          this.canStartShift.set(false);
+          this.error.set(
+            apiErrorMessage(error, 'Unable to load the shift report. Please try again.'),
+          );
         },
       });
   }
@@ -195,7 +225,10 @@ export class ShiftSummary {
       .endCurrent()
       .pipe(finalize(() => this.ending.set(false)))
       .subscribe({
-        next: (endedReport) => this.report.set(endedReport),
+        next: (endedReport) => {
+          this.report.set(endedReport);
+          this.canStartShift.set(true);
+        },
         error: (error: unknown) =>
           this.actionError.set(
             apiErrorMessage(
@@ -207,19 +240,27 @@ export class ShiftSummary {
   }
 
   startShift() {
-    if (!this.report()?.shiftEnd || this.starting()) return;
+    if (!this.canStartShift() || this.starting() || this.loading()) return;
 
     this.actionError.set('');
     this.starting.set(true);
+    this.canStartShift.set(false);
     this.api
       .start()
       .pipe(finalize(() => this.starting.set(false)))
       .subscribe({
         next: () => this.load(),
-        error: (error: unknown) =>
+        error: (error: unknown) => {
+          this.canStartShift.set(
+            !(error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)),
+          );
           this.actionError.set(
-            apiErrorMessage(error, 'The shift could not be started. Check the backend and try again.'),
-          ),
+            apiErrorMessage(
+              error,
+              'The shift could not be started. Check the backend and try again.',
+            ),
+          );
+        },
       });
   }
 
