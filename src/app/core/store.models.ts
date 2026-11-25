@@ -116,6 +116,8 @@ export interface StoreRefund {
   amount: number;
   orderId?: number | null;
   cashierName?: string | null;
+  cashierId?: number | null;
+  cashier?: { id?: number | null; fullName?: string | null; branchId?: number | null } | null;
   branchId?: number | null;
   branch?: StoreBranch | null;
   createdAt?: string | number[] | null;
