@@ -61,6 +61,23 @@ describe('AuthService', () => {
     expect(auth.homeRoute()).toBe('/store-status');
   });
 
+  it('routes a blocked tenant account to the store status page', () => {
+    auth.login('blocked@example.com', 'password').subscribe();
+    http.expectOne('/auth/signin').flush({
+      jwt: 'blocked-token',
+      storeStatus: 'BLOCKED',
+      user: {
+        id: 8,
+        fullName: 'Blocked Manager',
+        email: 'blocked@example.com',
+        role: 'ROLE_STORE_MANAGER',
+        storeId: 9,
+      },
+    });
+
+    expect(auth.homeRoute()).toBe('/store-status');
+  });
+
   it('routes an active store administrator to the store workspace without relying on client storeId', () => {
     auth.login('owner@example.com', 'password').subscribe();
     http.expectOne('/auth/signin').flush({

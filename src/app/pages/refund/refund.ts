@@ -1,7 +1,8 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { forkJoin } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { distinctUntilChanged, forkJoin, skip } from 'rxjs';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../../core/auth.service';
 import { Order, OrderItem, PaymentType } from '../../core/models';
@@ -75,6 +76,23 @@ export class Refund {
 
   constructor() {
     this.load();
+    toObservable(computed(() => this.auth.scopeKey()))
+      .pipe(distinctUntilChanged(), skip(1), takeUntilDestroyed())
+      .subscribe(() => {
+        this.orders.set([]);
+        this.refundedOrderIds.set(new Set());
+        this.selectedOrder.set(null);
+        this.returnItemIds.set([]);
+        this.returnQuantities.set({});
+        this.returnReason.set('');
+        this.confirming.set(false);
+        this.saving.set(false);
+        this.successMessage.set('');
+        this.query.set('');
+        this.error.set('');
+        if (this.auth.isLoggedIn() && this.auth.canRefund()) this.load();
+        else this.loading.set(false);
+      });
   }
 
   load() {

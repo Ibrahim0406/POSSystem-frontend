@@ -57,8 +57,12 @@ export class CustomerDetail {
           this.expanded.set(new Set());
           this.editing.set(false);
         }),
-        switchMap(([id]) =>
-          forkJoin({ customer: this.api.getById(id), orders: this.api.getOrders(id) }).pipe(
+        switchMap(([id]) => {
+          if (!this.auth.isLoggedIn() || !this.auth.canAccessCustomers()) {
+            this.loading.set(false);
+            return EMPTY;
+          }
+          return forkJoin({ customer: this.api.getById(id), orders: this.api.getOrders(id) }).pipe(
             tap((res) => {
               this.customer.set(res.customer);
               this.orders.set(res.orders);
@@ -72,8 +76,8 @@ export class CustomerDetail {
               return EMPTY;
             }),
             finalize(() => this.loading.set(false)),
-          ),
-        ),
+          );
+        }),
         takeUntilDestroyed(),
       )
       .subscribe();
@@ -93,12 +97,17 @@ export class CustomerDetail {
   remove() {
     const c = this.customer();
     if (!c?.id || !confirm(`Delete customer "${c.fullName}"?`)) return;
+    const scope = this.auth.scopeKey();
     this.api.delete(c.id).subscribe({
-      next: () => this.router.navigate(['/customers']),
-      error: (error: unknown) =>
+      next: () => {
+        if (scope === this.auth.scopeKey()) void this.router.navigate(['/customers']);
+      },
+      error: (error: unknown) => {
+        if (scope !== this.auth.scopeKey()) return;
         this.error.set(
           apiErrorMessage(error, 'Could not delete the customer. They may have linked orders.'),
-        ),
+        );
+      },
     });
   }
 }

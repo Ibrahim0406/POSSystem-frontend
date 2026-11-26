@@ -41,13 +41,27 @@ export class CustomerList {
   customers = signal<Customer[]>([]);
 
   constructor() {
+    let activeScope = this.auth.scopeKey();
     toObservable(this.trigger)
       .pipe(
         distinctUntilChanged((a, b) => a.q === b.q && a.r === b.r && a.scope === b.scope),
-        switchMap(({ q }) => {
+        switchMap(({ q, scope }) => {
+          if (scope !== activeScope) {
+            activeScope = scope;
+            this.query.set('');
+            this.showForm.set(false);
+            if (this.hasDetail()) {
+              this.hasDetail.set(false);
+              void this.router.navigate([this.auth.homeRoute()]);
+            }
+          }
           this.customers.set([]);
           this.loading.set(true);
           this.error.set('');
+          if (!this.auth.isLoggedIn() || !this.canCreateCustomer()) {
+            this.loading.set(false);
+            return EMPTY;
+          }
           return timer(250).pipe(
             switchMap(() => (q ? this.api.search(q) : this.api.getAll())),
             tap((customers) => this.customers.set(customers)),

@@ -1,3 +1,4 @@
+import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
@@ -9,6 +10,8 @@ import { StoreOperationsService } from '../../core/store-operations.service';
 import { CashierDashboard } from './cashier-dashboard';
 
 describe('CashierDashboard', () => {
+  type User = { id: number; branchId: number; storeId: number } | null;
+  let updateUser: (user: User) => void;
   let createOrder: ReturnType<typeof vi.fn>;
   let getByBranch: ReturnType<typeof vi.fn>;
   let getByStore: ReturnType<typeof vi.fn>;
@@ -19,6 +22,9 @@ describe('CashierDashboard', () => {
     getByBranch = vi.fn(() => of([]));
     getByStore = vi.fn(() => of([]));
     getInventory = vi.fn(() => of([]));
+    const user = signal<User>({ id: 5, branchId: 7, storeId: 2 });
+    updateUser = (nextUser) => user.set(nextUser);
+    const role = computed(() => (user() ? 'BRANCH_CASHIER' : null));
 
     await TestBed.configureTestingModule({
       imports: [CashierDashboard],
@@ -26,9 +32,16 @@ describe('CashierDashboard', () => {
         {
           provide: AuthService,
           useValue: {
-            user: () => ({ id: 5, branchId: 7, storeId: 2 }),
-            scopeKey: () => '1:BRANCH_CASHIER:2:7:ACTIVE',
-            canRefund: () => true,
+            user: () => user(),
+            role,
+            isLoggedIn: computed(() => user() !== null),
+            scopeKey: computed(() => {
+              const current = user();
+              return current
+                ? `${current.id}:BRANCH_CASHIER:${current.storeId}:${current.branchId}:ACTIVE`
+                : 'anonymous';
+            }),
+            canRefund: computed(() => role() === 'BRANCH_CASHIER'),
           },
         },
         { provide: BranchService, useValue: { getById: () => of({ id: 7, storeId: 2 }) } },
@@ -108,5 +121,38 @@ describe('CashierDashboard', () => {
     });
     expect(getInventory).toHaveBeenCalledTimes(2);
     expect(getByBranch).toHaveBeenCalledTimes(2);
+  });
+
+  it('clears cashier state when the authenticated scope logs out', async () => {
+    const fixture = TestBed.createComponent(CashierDashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.products.set([
+      { id: 1, name: 'Coffee', sku: 'CF-1', sellingPrice: 8, availableQuantity: 4 },
+    ]);
+    component.cart.set([
+      {
+        product: {
+          id: 1,
+          name: 'Coffee',
+          sku: 'CF-1',
+          sellingPrice: 8,
+          availableQuantity: 4,
+        },
+        quantity: 1,
+      },
+    ]);
+    component.search.set('coffee');
+    component.success.set('Order created');
+
+    updateUser(null);
+    await fixture.whenStable();
+
+    expect(component.products()).toEqual([]);
+    expect(component.cart()).toEqual([]);
+    expect(component.recentOrders()).toEqual([]);
+    expect(component.search()).toBe('');
+    expect(component.success()).toBe('');
   });
 });

@@ -1,7 +1,8 @@
 import { CurrencyPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { forkJoin } from 'rxjs';
+import { distinctUntilChanged, forkJoin, skip } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth.service';
 import { BranchService } from '../../core/branch.service';
 import { Order, PaymentType, Product } from '../../core/models';
@@ -70,6 +71,28 @@ export class CashierDashboard {
   constructor() {
     this.loadProducts();
     this.loadOrders();
+    toObservable(computed(() => this.auth.scopeKey()))
+      .pipe(distinctUntilChanged(), skip(1), takeUntilDestroyed())
+      .subscribe(() => {
+        this.clearTenantState();
+        if (this.auth.isLoggedIn() && this.auth.role() === 'BRANCH_CASHIER') {
+          this.loadProducts();
+          this.loadOrders();
+        }
+      });
+  }
+
+  private clearTenantState() {
+    this.products.set([]);
+    this.recentOrders.set([]);
+    this.cart.set([]);
+    this.search.set('');
+    this.loadingProducts.set(false);
+    this.loadingOrders.set(false);
+    this.submitting.set(false);
+    this.orderError.set('');
+    this.error.set('');
+    this.success.set('');
   }
 
   loadProducts() {

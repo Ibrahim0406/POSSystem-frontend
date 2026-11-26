@@ -7,6 +7,8 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { distinctUntilChanged, skip } from 'rxjs';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../../core/auth.service';
 import { Order, OrderItem } from '../../core/models';
@@ -65,6 +67,19 @@ export class OrderHistory {
 
   constructor() {
     this.load();
+    toObservable(computed(() => this.auth.scopeKey()))
+      .pipe(distinctUntilChanged(), skip(1), takeUntilDestroyed())
+      .subscribe(() => {
+        this.orders.set([]);
+        this.selectedOrder.set(null);
+        this.query.set('');
+        this.dateFilter.set('all');
+        this.customStart.set('');
+        this.customEnd.set('');
+        this.error.set('');
+        if (this.auth.isLoggedIn() && this.auth.canViewBranchOrders()) this.load();
+        else this.loading.set(false);
+      });
   }
 
   load() {
