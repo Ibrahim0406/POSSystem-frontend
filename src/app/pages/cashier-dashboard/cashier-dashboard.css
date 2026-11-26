@@ -53,6 +53,12 @@
   margin: 4px 0 24px;
 }
 
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
 .eyebrow {
   margin: 0 0 6px;
   color: #71917f;

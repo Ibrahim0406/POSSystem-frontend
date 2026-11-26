@@ -5,9 +5,16 @@
       <h1>Create new order</h1>
       <p class="subtitle">Choose products available in your branch and review the order.</p>
     </div>
-    <button class="new-order-button" type="button" (click)="startNewOrder()">
-      <span aria-hidden="true">＋</span> New order
-    </button>
+    <div class="page-actions">
+      @if (canCreateCustomers()) {
+        <button class="new-order-button" type="button" (click)="openCustomerForm()">
+          <span aria-hidden="true">＋</span> Add customer
+        </button>
+      }
+      <button class="new-order-button" type="button" (click)="startNewOrder()">
+        <span aria-hidden="true">＋</span> New order
+      </button>
+    </div>
   </header>
 
   @if (error()) {
@@ -172,6 +179,7 @@
           <span>Subtotal</span><strong>{{ subtotal() | currency: 'EUR' }}</strong>
         </div>
       </section>
+
     </section>
 
     <aside class="checkout-panel">
@@ -243,3 +251,11 @@
     }
   </section>
 </section>
+
+@if (showCustomerForm() && canCreateCustomers()) {
+  <app-customer-form
+    language="en"
+    (saved)="onCustomerSaved($event)"
+    (closed)="showCustomerForm.set(false)"
+  />
+}

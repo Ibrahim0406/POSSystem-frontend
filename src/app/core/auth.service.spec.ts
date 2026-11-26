@@ -93,6 +93,7 @@ describe('AuthService', () => {
 
     expect(auth.homeRoute()).toBe('/store-dashboard');
     expect(auth.canAccessCustomers()).toBe(true);
+    expect(auth.canCreateCustomers()).toBe(false);
   });
 
   it('keeps a platform administrator on the admin route when storeStatus is absent', () => {
@@ -109,6 +110,7 @@ describe('AuthService', () => {
 
     expect(auth.storeStatus()).toBeNull();
     expect(auth.homeRoute()).toBe('/admin');
+    expect(auth.canCreateCustomers()).toBe(false);
   });
 
   it('uses the branch role and assignment instead of storeStatus to choose POS access', () => {
@@ -128,6 +130,7 @@ describe('AuthService', () => {
     expect(auth.canViewBranchOrders()).toBe(true);
     expect(auth.canRefund()).toBe(true);
     expect(auth.canAccessCustomers()).toBe(false);
+    expect(auth.canCreateCustomers()).toBe(true);
     expect(auth.homeRoute()).toBe('/cashier');
   });
 
@@ -145,6 +148,7 @@ describe('AuthService', () => {
 
     expect(auth.storeStatus()).toBeNull();
     expect(auth.homeRoute()).toBe('/account-access');
+    expect(auth.canCreateCustomers()).toBe(false);
   });
 
   it('routes store managers to the store workspace with store scope', () => {
@@ -162,6 +166,7 @@ describe('AuthService', () => {
     });
 
     expect(auth.homeRoute()).toBe('/store-dashboard');
+    expect(auth.canCreateCustomers()).toBe(false);
   });
 
   it('routes branch managers to the branch workspace with branch scope', () => {
@@ -180,6 +185,7 @@ describe('AuthService', () => {
     });
 
     expect(auth.homeRoute()).toBe('/store-dashboard');
+    expect(auth.canCreateCustomers()).toBe(true);
   });
 
   it('logout clears auth keys and tenant-scoped localStorage state', () => {

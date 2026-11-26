@@ -26,9 +26,7 @@ export class CustomerList {
   loading = signal(true);
   error = signal('');
   showForm = signal(false);
-  canCreateCustomer = computed(() => {
-    return this.auth.canAccessCustomers();
-  });
+  canCreateCustomer = this.auth.canCreateCustomers;
   /** True when a customer is open in the child route, showing the two-column layout. */
   hasDetail = signal(false);
 
@@ -58,7 +56,7 @@ export class CustomerList {
           this.customers.set([]);
           this.loading.set(true);
           this.error.set('');
-          if (!this.auth.isLoggedIn() || !this.canCreateCustomer()) {
+          if (!this.auth.isLoggedIn() || !this.auth.canAccessCustomers()) {
             this.loading.set(false);
             return EMPTY;
           }

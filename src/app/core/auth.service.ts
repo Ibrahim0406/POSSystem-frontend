@@ -66,6 +66,12 @@ export class AuthService {
       (this.role() === 'BRANCH_MANAGER' && this.hasBranchScope())
     );
   });
+  readonly canCreateCustomers = computed(() => {
+    return (
+      (this.role() === 'BRANCH_MANAGER' || this.role() === 'BRANCH_CASHIER') &&
+      this.hasBranchScope()
+    );
+  });
   readonly canViewShiftSummary = computed(() => {
     const role = this.role();
     return (

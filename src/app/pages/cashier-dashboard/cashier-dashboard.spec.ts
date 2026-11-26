@@ -42,6 +42,7 @@ describe('CashierDashboard', () => {
                 : 'anonymous';
             }),
             canRefund: computed(() => role() === 'BRANCH_CASHIER'),
+            canCreateCustomers: computed(() => role() === 'BRANCH_CASHIER'),
           },
         },
         { provide: BranchService, useValue: { getById: () => of({ id: 7, storeId: 2 }) } },
@@ -66,6 +67,16 @@ describe('CashierDashboard', () => {
     expect(component.products().map((product) => [product.id, product.availableQuantity])).toEqual([
       [1, 6],
     ]);
+  });
+
+  it('lets an assigned cashier open customer creation from POS', () => {
+    const fixture = TestBed.createComponent(CashierDashboard);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    expect(fixture.nativeElement.textContent).toContain('Add customer');
+    component.openCustomerForm();
+    expect(component.showCustomerForm()).toBe(true);
   });
 
   it('limits cart quantity to branch stock and calculates read-only totals', () => {

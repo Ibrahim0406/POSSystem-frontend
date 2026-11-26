@@ -5,12 +5,13 @@ import { distinctUntilChanged, forkJoin, skip } from 'rxjs';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth.service';
 import { BranchService } from '../../core/branch.service';
-import { Order, PaymentType, Product } from '../../core/models';
+import { Customer, Order, PaymentType, Product } from '../../core/models';
 import { OrderService } from '../../core/order.service';
 import { ProductService } from '../../core/product.service';
 import { StoreOperationsService } from '../../core/store-operations.service';
 import { apiErrorMessage } from '../../core/api-error-message';
 import { toDate } from '../../core/loyalty';
+import { CustomerForm } from '../../shared/customer-form';
 
 interface CashierProduct extends Product {
   availableQuantity: number;
@@ -23,7 +24,7 @@ interface CartItem {
 
 @Component({
   selector: 'app-cashier-dashboard',
-  imports: [CurrencyPipe],
+  imports: [CurrencyPipe, CustomerForm],
   templateUrl: './cashier-dashboard.html',
   styleUrl: './cashier-dashboard.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -35,6 +36,7 @@ export class CashierDashboard {
   private readonly productsApi = inject(ProductService);
   private readonly storeApi = inject(StoreOperationsService);
 
+  readonly canCreateCustomers = this.auth.canCreateCustomers;
   readonly products = signal<CashierProduct[]>([]);
   readonly recentOrders = signal<Order[]>([]);
   readonly cart = signal<CartItem[]>([]);
@@ -43,6 +45,7 @@ export class CashierDashboard {
   readonly loadingProducts = signal(true);
   readonly loadingOrders = signal(true);
   readonly submitting = signal(false);
+  readonly showCustomerForm = signal(false);
   readonly orderError = signal('');
   readonly error = signal('');
   readonly success = signal('');
@@ -93,6 +96,16 @@ export class CashierDashboard {
     this.orderError.set('');
     this.error.set('');
     this.success.set('');
+    this.showCustomerForm.set(false);
+  }
+
+  openCustomerForm() {
+    if (this.canCreateCustomers()) this.showCustomerForm.set(true);
+  }
+
+  onCustomerSaved(_customer: Customer) {
+    this.showCustomerForm.set(false);
+    this.success.set('Customer created successfully.');
   }
 
   loadProducts() {
