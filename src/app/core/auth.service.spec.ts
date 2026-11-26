@@ -110,6 +110,7 @@ describe('AuthService', () => {
     expect(auth.storeStatus()).toBeNull();
     expect(auth.canViewBranchOrders()).toBe(true);
     expect(auth.canRefund()).toBe(true);
+    expect(auth.canAccessCustomers()).toBe(false);
     expect(auth.homeRoute()).toBe('/cashier');
   });
 

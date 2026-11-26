@@ -74,6 +74,8 @@ export class OrderHistory {
     this.selectedOrder.set(null);
     const user = this.auth.user();
     const scope = this.auth.scopeKey();
+    const cashierId = user?.id;
+    const isCashier = this.auth.role() === 'BRANCH_CASHIER';
     if (!this.auth.canViewBranchOrders()) {
       this.error.set('Order history is only available to branch managers and cashiers.');
       this.loading.set(false);
@@ -88,7 +90,13 @@ export class OrderHistory {
     this.api.getByBranch(user.branchId).subscribe({
       next: (orders) => {
         if (scope !== this.auth.scopeKey()) return;
-        this.orders.set(orders.filter((order) => order.branch?.id === user.branchId));
+        this.orders.set(
+          orders.filter(
+            (order) =>
+              (order.branch?.id ?? order.branchId) === user.branchId &&
+              (!isCashier || (order.cashier?.id ?? order.cashierId) === cashierId),
+          ),
+        );
         this.loading.set(false);
       },
       error: (error: unknown) => {

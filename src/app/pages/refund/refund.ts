@@ -50,9 +50,7 @@ export class Refund {
         const hasReturnableItems = order.items.some(
           (item) => this.remainingQuantity(order, item) > 0,
         );
-        const orderBranchId = order.branch?.id;
-        const matchesBranch = orderBranchId === this.auth.user()?.branchId;
-        return matchesSearch && hasReturnableItems && matchesBranch;
+        return matchesSearch && hasReturnableItems && this.isOwnBranchOrder(order);
       })
       .sort((a, b) => this.timestamp(b.createdAt) - this.timestamp(a.createdAt));
   });
@@ -104,10 +102,18 @@ export class Refund {
     }).subscribe({
       next: ({ orders, refunds }) => {
         if (scope !== this.auth.scopeKey()) return;
-        this.orders.set(orders.filter((order) => order.branch?.id === user.branchId));
+        const ownOrders = orders.filter(
+          (order) => this.isOwnBranchOrder(order) && this.isOwnCashierOrder(order),
+        );
+        const ownRefunds = refunds.filter(
+          (refund) =>
+            (refund.branch?.id ?? refund.branchId) === user.branchId &&
+            (refund.cashier?.id ?? refund.cashierId) === user.id,
+        );
+        this.orders.set(ownOrders);
         this.refundedOrderIds.set(
           new Set(
-            refunds
+            ownRefunds
               .map((refund) => refund.orderId ?? refund.order?.id)
               .filter((orderId): orderId is number => orderId != null),
           ),
@@ -131,7 +137,8 @@ export class Refund {
 
   openOrder(order: Order) {
     if (
-      order.branch?.id !== this.auth.user()?.branchId ||
+      !this.isOwnBranchOrder(order) ||
+      !this.isOwnCashierOrder(order) ||
       this.refundedOrderIds().has(order.id)
     ) {
       return;
@@ -208,15 +215,14 @@ export class Refund {
           this.successMessage.set(`Refund recorded for order #${order.id}.`);
           this.selectedOrder.set(null);
           this.confirming.set(false);
+          this.load();
         },
         error: (error: unknown) => {
           if (scope !== this.auth.scopeKey()) return;
           this.saving.set(false);
-          this.error.set(
-            apiErrorMessage(error, 'The refund could not be recorded. Please try again.'),
-          );
+          this.error.set(this.refundErrorMessage(error));
           this.confirming.set(false);
-          if (error instanceof HttpErrorResponse && error.status === 403) {
+          if (error instanceof HttpErrorResponse && [403, 404].includes(error.status)) {
             this.orders.set([]);
             this.refundedOrderIds.set(new Set());
             this.selectedOrder.set(null);
@@ -259,5 +265,37 @@ export class Refund {
 
   private timestamp(value: Order['createdAt']) {
     return toDate(value)?.getTime() ?? 0;
+  }
+
+  private isOwnBranchOrder(order: Order) {
+    const branchId = this.auth.user()?.branchId;
+    return (order.branch?.id ?? order.branchId) === branchId;
+  }
+
+  private isOwnCashierOrder(order: Order) {
+    const cashierId = this.auth.user()?.id;
+    return (order.cashier?.id ?? order.cashierId) === cashierId;
+  }
+
+  private refundErrorMessage(error: unknown) {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 400 || error.status === 409) {
+        const message =
+          typeof error.error === 'string'
+            ? error.error
+            : error.error && typeof error.error.message === 'string'
+              ? error.error.message
+              : null;
+        return message
+          ? `Refund rejected: ${message}`
+          : error.status === 409
+            ? 'Refund rejected: this order may already have a refund or is no longer eligible.'
+            : 'Refund rejected: the order or refund amount does not meet the return rules.';
+      }
+      if (error.status === 403) {
+        return 'Refund rejected: you are not allowed to refund this order.';
+      }
+    }
+    return apiErrorMessage(error, 'The refund could not be recorded. Please try again.');
   }
 }
