@@ -37,8 +37,7 @@ export class AuthService {
   readonly hasStoreScope = computed(() => {
     const user = this._user();
     return (
-      (this.role() === 'STORE_ADMIN' || this.role() === 'STORE_MANAGER') &&
-      user?.storeId != null
+      (this.role() === 'STORE_ADMIN' || this.role() === 'STORE_MANAGER') && user?.storeId != null
     );
   });
   readonly hasBranchScope = computed(() => {
@@ -63,8 +62,8 @@ export class AuthService {
   readonly canAccessCustomers = computed(() => {
     return (
       this.role() === 'STORE_ADMIN' ||
-      this.hasStoreScope() ||
-      this.hasBranchScope()
+      (this.role() === 'STORE_MANAGER' && this.hasStoreScope()) ||
+      (this.role() === 'BRANCH_MANAGER' && this.hasBranchScope())
     );
   });
   readonly canViewShiftSummary = computed(() => {

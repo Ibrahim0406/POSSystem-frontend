@@ -7,6 +7,8 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { distinctUntilChanged, skip } from 'rxjs';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../../core/auth.service';
 import { Order, OrderItem } from '../../core/models';
@@ -65,6 +67,19 @@ export class OrderHistory {
 
   constructor() {
     this.load();
+    toObservable(computed(() => this.auth.scopeKey()))
+      .pipe(distinctUntilChanged(), skip(1), takeUntilDestroyed())
+      .subscribe(() => {
+        this.orders.set([]);
+        this.selectedOrder.set(null);
+        this.query.set('');
+        this.dateFilter.set('all');
+        this.customStart.set('');
+        this.customEnd.set('');
+        this.error.set('');
+        if (this.auth.isLoggedIn() && this.auth.canViewBranchOrders()) this.load();
+        else this.loading.set(false);
+      });
   }
 
   load() {
@@ -74,6 +89,8 @@ export class OrderHistory {
     this.selectedOrder.set(null);
     const user = this.auth.user();
     const scope = this.auth.scopeKey();
+    const cashierId = user?.id;
+    const isCashier = this.auth.role() === 'BRANCH_CASHIER';
     if (!this.auth.canViewBranchOrders()) {
       this.error.set('Order history is only available to branch managers and cashiers.');
       this.loading.set(false);
@@ -88,7 +105,13 @@ export class OrderHistory {
     this.api.getByBranch(user.branchId).subscribe({
       next: (orders) => {
         if (scope !== this.auth.scopeKey()) return;
-        this.orders.set(orders.filter((order) => order.branch?.id === user.branchId));
+        this.orders.set(
+          orders.filter(
+            (order) =>
+              (order.branch?.id ?? order.branchId) === user.branchId &&
+              (!isCashier || (order.cashier?.id ?? order.cashierId) === cashierId),
+          ),
+        );
         this.loading.set(false);
       },
       error: (error: unknown) => {

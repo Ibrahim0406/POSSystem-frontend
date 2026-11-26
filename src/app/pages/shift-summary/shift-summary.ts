@@ -1,8 +1,18 @@
 import { CurrencyPipe, DatePipe, DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
-import { catchError, finalize, interval, map, of, startWith, throwError } from 'rxjs';
+import {
+  catchError,
+  distinctUntilChanged,
+  finalize,
+  interval,
+  map,
+  of,
+  skip,
+  startWith,
+  throwError,
+} from 'rxjs';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../../core/auth.service';
 import { PaymentType, ShiftRefund, ShiftReport } from '../../core/models';
@@ -88,6 +98,19 @@ export class ShiftSummary {
       .pipe(startWith(0), takeUntilDestroyed())
       .subscribe(() => this.clock.set(new Date()));
     this.load();
+    toObservable(computed(() => this.auth.scopeKey()))
+      .pipe(distinctUntilChanged(), skip(1), takeUntilDestroyed())
+      .subscribe(() => {
+        this.report.set(null);
+        this.branchReports.set([]);
+        this.canStartShift.set(false);
+        this.error.set('');
+        this.actionError.set('');
+        this.starting.set(false);
+        this.ending.set(false);
+        if (this.auth.isLoggedIn() && this.auth.canViewShiftSummary()) this.load();
+        else this.loading.set(false);
+      });
   }
 
   load() {
@@ -221,21 +244,29 @@ export class ShiftSummary {
 
     this.actionError.set('');
     this.ending.set(true);
+    const scope = this.auth.scopeKey();
     this.api
       .endCurrent()
-      .pipe(finalize(() => this.ending.set(false)))
+      .pipe(
+        finalize(() => {
+          if (scope === this.auth.scopeKey()) this.ending.set(false);
+        }),
+      )
       .subscribe({
         next: (endedReport) => {
+          if (scope !== this.auth.scopeKey()) return;
           this.report.set(endedReport);
           this.canStartShift.set(true);
         },
-        error: (error: unknown) =>
+        error: (error: unknown) => {
+          if (scope !== this.auth.scopeKey()) return;
           this.actionError.set(
             apiErrorMessage(
               error,
               'The shift could not be ended. Check the backend and the shift branch, then try again.',
             ),
-          ),
+          );
+        },
       });
   }
 
@@ -245,12 +276,20 @@ export class ShiftSummary {
     this.actionError.set('');
     this.starting.set(true);
     this.canStartShift.set(false);
+    const scope = this.auth.scopeKey();
     this.api
       .start()
-      .pipe(finalize(() => this.starting.set(false)))
+      .pipe(
+        finalize(() => {
+          if (scope === this.auth.scopeKey()) this.starting.set(false);
+        }),
+      )
       .subscribe({
-        next: () => this.load(),
+        next: () => {
+          if (scope === this.auth.scopeKey()) this.load();
+        },
         error: (error: unknown) => {
+          if (scope !== this.auth.scopeKey()) return;
           this.canStartShift.set(
             !(error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)),
           );

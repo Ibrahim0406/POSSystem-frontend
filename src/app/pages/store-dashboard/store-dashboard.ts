@@ -947,16 +947,28 @@ export class StoreDashboard {
   }
 
   private mutate<T>(request: Observable<T>, success: string, afterSuccess: () => void): void {
+    const scope = this.auth.scopeKey();
     this.actionBusy.set(true);
     this.actionError.set('');
     this.notice.set('');
-    request.pipe(finalize(() => this.actionBusy.set(false))).subscribe({
-      next: () => {
-        this.notice.set(success);
-        afterSuccess();
-      },
-      error: (error: unknown) => this.handleError(error, 'The operation could not be completed.'),
-    });
+    request
+      .pipe(
+        finalize(() => {
+          if (scope === this.auth.scopeKey()) this.actionBusy.set(false);
+        }),
+      )
+      .subscribe({
+        next: () => {
+          if (scope !== this.auth.scopeKey()) return;
+          this.notice.set(success);
+          afterSuccess();
+        },
+        error: (error: unknown) => {
+          if (scope === this.auth.scopeKey()) {
+            this.handleError(error, 'The operation could not be completed.');
+          }
+        },
+      });
   }
 
   private handleError(error: unknown, fallback: string): void {
@@ -980,6 +992,9 @@ export class StoreDashboard {
     this.branchRequestId++;
     this.loading.set(false);
     this.branchLoading.set(false);
+    this.actionBusy.set(false);
+    this.actionError.set('');
+    this.notice.set('');
     this.section.set('overview');
     this.showBranchForm.set(false);
     this.branchEditingId.set(null);

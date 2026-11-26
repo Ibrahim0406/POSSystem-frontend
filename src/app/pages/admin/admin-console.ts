@@ -178,17 +178,23 @@ export class AdminConsole {
 
   loadDashboard() {
     this.startLoading();
+    this.dashboard.set(null);
     this.api
       .getDashboard()
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (data) => this.dashboard.set(data),
-        error: () => this.error.set('Unable to load admin dashboard data. Try again.'),
+        error: () => {
+          this.dashboard.set(null);
+          this.error.set('Unable to load admin dashboard data. Try again.');
+        },
       });
   }
 
   loadStores() {
     this.startLoading();
+    this.stores.set([]);
+    this.branches.set([]);
     this.api
       .getStores(this.storeQuery(), this.storeStatus())
       .pipe(finalize(() => this.loading.set(false)))
@@ -202,7 +208,11 @@ export class AdminConsole {
             else this.branches.set([]);
           }
         },
-        error: () => this.error.set('Unable to load stores. Check the backend and try again.'),
+        error: () => {
+          this.stores.set([]);
+          this.branches.set([]);
+          this.error.set('Unable to load stores. Check the backend and try again.');
+        },
       });
   }
 
@@ -263,6 +273,7 @@ export class AdminConsole {
   }
 
   loadBranches(storeId: number) {
+    this.branches.set([]);
     this.branchesLoading.set(true);
     this.branchesError.set('');
     this.api
@@ -376,6 +387,8 @@ export class AdminConsole {
 
   loadUsers() {
     this.startLoading();
+    this.users.set([]);
+    this.userRoleDrafts.set({});
     this.api
       .getUsers({ query: this.userQuery(), role: this.userRole(), status: this.userStatus() })
       .pipe(finalize(() => this.loading.set(false)))
@@ -384,7 +397,11 @@ export class AdminConsole {
           this.users.set(users);
           this.userRoleDrafts.set(Object.fromEntries(users.map((user) => [user.id, user.role])));
         },
-        error: () => this.error.set('Unable to load users. Check the backend and try again.'),
+        error: () => {
+          this.users.set([]);
+          this.userRoleDrafts.set({});
+          this.error.set('Unable to load users. Check the backend and try again.');
+        },
       });
   }
 
@@ -407,6 +424,7 @@ export class AdminConsole {
   }
 
   loadUserStores() {
+    this.userStores.set([]);
     this.userStoresLoading.set(true);
     this.userStoresError.set('');
     this.api
@@ -551,7 +569,8 @@ export class AdminConsole {
               this.actionFailure('User created, but the user list could not be refreshed.'),
           });
       },
-      error: () => this.actionFailure('Unable to create the user. Check the details and try again.'),
+      error: () =>
+        this.actionFailure('Unable to create the user. Check the details and try again.'),
     });
   }
 
@@ -594,6 +613,7 @@ export class AdminConsole {
 
   loadSupportReports() {
     this.startLoading();
+    this.supportReports.set([]);
     this.api
       .getSupportReports(this.supportStatus())
       .pipe(finalize(() => this.loading.set(false)))
@@ -627,6 +647,7 @@ export class AdminConsole {
 
   loadAuditLogs() {
     this.startLoading();
+    this.auditLogs.set([]);
     this.api
       .getAuditLogs()
       .pipe(finalize(() => this.loading.set(false)))
@@ -638,6 +659,8 @@ export class AdminConsole {
 
   loadSettings() {
     this.startLoading();
+    this.settings.set([]);
+    this.settingDrafts.set({});
     this.api
       .getSettings()
       .pipe(finalize(() => this.loading.set(false)))

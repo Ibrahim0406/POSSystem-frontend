@@ -7,6 +7,151 @@ import { StoreOperationsService } from '../../core/store-operations.service';
 import { StoreDashboard } from './store-dashboard';
 
 describe('StoreDashboard', () => {
+  it('clears Store Manager tenant state when the assigned account logs out', async () => {
+    const user = signal({
+      id: 2,
+      fullName: 'Manager',
+      email: 'manager@example.com',
+      role: 'ROLE_STORE_MANAGER',
+      storeId: 7,
+    } as {
+      id: number;
+      fullName: string;
+      email: string;
+      role: string;
+      storeId: number;
+    } | null);
+    const api = {
+      getStoreForEmployee: () => of({ id: 7, brand: 'Store', status: 'ACTIVE' }),
+      getBranches: () => of([]),
+      getProducts: () => of([{ id: 4, name: 'Product', sku: 'SKU', storeId: 7 }]),
+      getCategories: () => of([]),
+      getStoreEmployees: () => of([]),
+      getInventory: () => of([]),
+      getOrders: () => of([]),
+      getRefunds: () => of([]),
+      getShiftReports: () => of([]),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [StoreDashboard],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            user: () => user(),
+            role: computed(() => (user() ? 'STORE_MANAGER' : null)),
+            scopeKey: computed(() => {
+              const current = user();
+              return current ? `${current.id}:${current.storeId}` : 'anonymous';
+            }),
+          },
+        },
+        { provide: StoreOperationsService, useValue: api },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(StoreDashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.products()).toHaveLength(1);
+
+    user.set(null);
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.store()).toBeNull();
+    expect(fixture.componentInstance.products()).toEqual([]);
+    expect(fixture.componentInstance.branches()).toEqual([]);
+    expect(fixture.componentInstance.inventory()).toEqual([]);
+    expect(fixture.componentInstance.employees()).toEqual([]);
+    expect(fixture.componentInstance.orders()).toEqual([]);
+  });
+
+  it('lets Store Managers create and edit branches but rejects store-level employee roles', async () => {
+    const branch = {
+      id: 3,
+      name: 'Main',
+      address: 'Street',
+      phoneNumber: '061',
+      email: 'main@example.com',
+      workingDays: ['MONDAY'],
+      openTime: '08:00:00',
+      closeTime: '20:00:00',
+      storeId: 7,
+    };
+    const api = {
+      getStoreForEmployee: () => of({ id: 7, brand: 'Store', status: 'ACTIVE' }),
+      getBranches: () => of([branch]),
+      getProducts: () => of([]),
+      getCategories: () => of([]),
+      getStoreEmployees: () => of([]),
+      getInventory: () => of([]),
+      getOrders: () => of([]),
+      getRefunds: () => of([]),
+      getShiftReports: () => of([]),
+      createBranch: vi.fn(() => of(branch)),
+      updateBranch: vi.fn(() => of(branch)),
+      createStoreEmployee: vi.fn(() => of({})),
+      createBranchEmployee: vi.fn(() => of({})),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [StoreDashboard],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            user: () => ({ id: 2, fullName: 'Manager', storeId: 7 }),
+            role: computed(() => 'STORE_MANAGER'),
+            scopeKey: () => '2:ROLE_STORE_MANAGER:7',
+          },
+        },
+        { provide: StoreOperationsService, useValue: api },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(StoreDashboard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const dashboard = fixture.componentInstance;
+
+    expect(dashboard.canManageBranches()).toBe(true);
+    dashboard.branchDraft.set({
+      name: 'Second',
+      address: 'Road',
+      phoneNumber: '062',
+      email: 'second@example.com',
+      workingDays: ['MONDAY'],
+      openTime: '09:00',
+      closeTime: '18:00',
+    });
+    dashboard.saveBranch({ preventDefault: vi.fn() } as unknown as Event);
+    dashboard.branchEditingId.set(branch.id);
+    dashboard.saveBranch({ preventDefault: vi.fn() } as unknown as Event);
+
+    expect(api.createBranch).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Second', openTime: '09:00:00' }),
+    );
+    expect(api.updateBranch).toHaveBeenCalledWith(
+      branch.id,
+      expect.objectContaining({ name: 'Second', closeTime: '18:00:00' }),
+    );
+
+    dashboard.employeeDraft.set({
+      fullName: 'Not allowed',
+      email: 'not-allowed@example.com',
+      phone: '',
+      password: 'password',
+      role: 'ROLE_STORE_ADMIN',
+      branchId: '3',
+    });
+    dashboard.saveEmployee({ preventDefault: vi.fn() } as unknown as Event);
+
+    expect(api.createStoreEmployee).not.toHaveBeenCalled();
+    expect(api.createBranchEmployee).not.toHaveBeenCalled();
+    expect(dashboard.actionError()).toContain('Branch Managers and Branch Cashiers');
+  });
+
   it('clears tenant data and reports access denied when an operation returns 403', async () => {
     const user = signal({
       id: 1,

@@ -1,22 +1,29 @@
 import { CurrencyPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CustomerForm } from '../../shared/customer-form';
+import { HttpErrorResponse } from '@angular/common/http';
+import { distinctUntilChanged, forkJoin, skip } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth.service';
 import { BranchService } from '../../core/branch.service';
-import { CustomerService } from '../../core/customer.service';
-import { Customer, PaymentType, Product } from '../../core/models';
+import { Order, PaymentType, Product } from '../../core/models';
 import { OrderService } from '../../core/order.service';
 import { ProductService } from '../../core/product.service';
+import { StoreOperationsService } from '../../core/store-operations.service';
 import { apiErrorMessage } from '../../core/api-error-message';
+import { toDate } from '../../core/loyalty';
+
+interface CashierProduct extends Product {
+  availableQuantity: number;
+}
 
 interface CartItem {
-  product: Product;
+  product: CashierProduct;
   quantity: number;
 }
 
 @Component({
   selector: 'app-cashier-dashboard',
-  imports: [CurrencyPipe, CustomerForm],
+  imports: [CurrencyPipe],
   templateUrl: './cashier-dashboard.html',
   styleUrl: './cashier-dashboard.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,22 +31,19 @@ interface CartItem {
 export class CashierDashboard {
   private readonly auth = inject(AuthService);
   private readonly branches = inject(BranchService);
-  private readonly customersApi = inject(CustomerService);
   private readonly ordersApi = inject(OrderService);
   private readonly productsApi = inject(ProductService);
+  private readonly storeApi = inject(StoreOperationsService);
 
-  readonly products = signal<Product[]>([]);
-  readonly customers = signal<Customer[]>([]);
+  readonly products = signal<CashierProduct[]>([]);
+  readonly recentOrders = signal<Order[]>([]);
   readonly cart = signal<CartItem[]>([]);
   readonly search = signal('');
-  readonly selectedCustomer = signal<Customer | null>(null);
-  readonly discountPercent = signal(0);
-  readonly note = signal('');
   readonly paymentType = signal<PaymentType>('CASH');
   readonly loadingProducts = signal(true);
-  readonly loadingCustomers = signal(true);
+  readonly loadingOrders = signal(true);
   readonly submitting = signal(false);
-  readonly showCustomerForm = signal(false);
+  readonly orderError = signal('');
   readonly error = signal('');
   readonly success = signal('');
 
@@ -62,12 +66,33 @@ export class CashierDashboard {
       0,
     ),
   );
-  readonly discountAmount = computed(() => (this.subtotal() * this.discountPercent()) / 100);
-  readonly total = computed(() => this.subtotal() - this.discountAmount());
+  readonly total = computed(() => this.subtotal());
 
   constructor() {
-    this.loadCustomers();
     this.loadProducts();
+    this.loadOrders();
+    toObservable(computed(() => this.auth.scopeKey()))
+      .pipe(distinctUntilChanged(), skip(1), takeUntilDestroyed())
+      .subscribe(() => {
+        this.clearTenantState();
+        if (this.auth.isLoggedIn() && this.auth.role() === 'BRANCH_CASHIER') {
+          this.loadProducts();
+          this.loadOrders();
+        }
+      });
+  }
+
+  private clearTenantState() {
+    this.products.set([]);
+    this.recentOrders.set([]);
+    this.cart.set([]);
+    this.search.set('');
+    this.loadingProducts.set(false);
+    this.loadingOrders.set(false);
+    this.submitting.set(false);
+    this.orderError.set('');
+    this.error.set('');
+    this.success.set('');
   }
 
   loadProducts() {
@@ -76,6 +101,7 @@ export class CashierDashboard {
     const scope = this.auth.scopeKey();
     this.products.set([]);
     this.cart.set([]);
+    this.loadingProducts.set(true);
     if (branchId == null) {
       this.error.set('Your account is not assigned to a branch. Please sign in again.');
       this.loadingProducts.set(false);
@@ -85,21 +111,65 @@ export class CashierDashboard {
     this.branches.getById(branchId).subscribe({
       next: (branch) => {
         if (scope !== this.auth.scopeKey()) return;
-        if (user?.storeId != null && branch.storeId !== user.storeId) {
+        if (branch.id !== branchId || (user?.storeId != null && branch.storeId !== user.storeId)) {
+          this.products.set([]);
+          this.cart.set([]);
           this.error.set('The branch does not belong to your assigned store.');
           this.loadingProducts.set(false);
           return;
         }
-        this.productsApi.getByStore(branch.storeId).subscribe({
-          next: (products) => {
+        forkJoin({
+          products: this.productsApi.getByStore(branch.storeId),
+          inventory: this.storeApi.getInventory(branchId),
+        }).subscribe({
+          next: ({ products, inventory }) => {
             if (scope !== this.auth.scopeKey()) return;
-            this.products.set(products);
+            if (inventory.some((entry) => entry.branchId !== branchId)) {
+              this.products.set([]);
+              this.cart.set([]);
+              this.error.set('Inventory data contains items outside your assigned branch.');
+              this.loadingProducts.set(false);
+              return;
+            }
+            const quantities = new Map(
+              inventory.map((entry) => [entry.productId, Math.max(0, entry.quantity)]),
+            );
+            const branchProducts = products
+              .filter(
+                (product) =>
+                  quantities.has(product.id) &&
+                  (product.storeId == null || product.storeId === branch.storeId),
+              )
+              .map((product) => ({
+                ...product,
+                availableQuantity: quantities.get(product.id) ?? 0,
+              }));
+            this.products.set(branchProducts);
+            const availableProductIds = new Set(branchProducts.map((product) => product.id));
+            this.cart.update((items) =>
+              items
+                .filter((item) => availableProductIds.has(item.product.id))
+                .map((item) => {
+                  const product = branchProducts.find((entry) => entry.id === item.product.id)!;
+                  return {
+                    product,
+                    quantity: Math.min(item.quantity, product.availableQuantity),
+                  };
+                })
+                .filter((item) => item.quantity > 0),
+            );
             this.loadingProducts.set(false);
           },
           error: (error: unknown) => {
             if (scope !== this.auth.scopeKey()) return;
             this.products.set([]);
-            this.error.set(apiErrorMessage(error, 'Products could not be loaded. Please try again.'));
+            this.cart.set([]);
+            this.error.set(
+              apiErrorMessage(
+                error,
+                'Products and branch inventory could not be loaded. Please try again.',
+              ),
+            );
             this.loadingProducts.set(false);
           },
         });
@@ -107,6 +177,7 @@ export class CashierDashboard {
       error: (error: unknown) => {
         if (scope !== this.auth.scopeKey()) return;
         this.products.set([]);
+        this.cart.set([]);
         this.error.set(
           apiErrorMessage(error, 'Branch details could not be loaded. Please try again.'),
         );
@@ -115,36 +186,63 @@ export class CashierDashboard {
     });
   }
 
-  loadCustomers() {
+  loadOrders() {
+    const user = this.auth.user();
     const scope = this.auth.scopeKey();
-    this.customers.set([]);
-    this.selectedCustomer.set(null);
-    this.customersApi.getAll().subscribe({
-      next: (customers) => {
+    this.loadingOrders.set(true);
+    this.recentOrders.set([]);
+    this.orderError.set('');
+    if (user?.branchId == null || user.id == null) {
+      this.orderError.set('Unable to identify your cashier and branch.');
+      this.loadingOrders.set(false);
+      return;
+    }
+
+    this.ordersApi.getByBranch(user.branchId).subscribe({
+      next: (orders) => {
         if (scope !== this.auth.scopeKey()) return;
-        this.customers.set(customers);
-        this.loadingCustomers.set(false);
+        this.recentOrders.set(
+          orders
+            .filter(
+              (order) =>
+                (order.branch?.id ?? order.branchId) === user.branchId &&
+                (order.cashier?.id ?? order.cashierId) === user.id,
+            )
+            .sort(
+              (a, b) =>
+                (toDate(b.createdAt)?.getTime() ?? 0) - (toDate(a.createdAt)?.getTime() ?? 0),
+            )
+            .slice(0, 5),
+        );
+        this.loadingOrders.set(false);
       },
       error: (error: unknown) => {
         if (scope !== this.auth.scopeKey()) return;
-        this.customers.set([]);
-        this.error.set(apiErrorMessage(error, 'Customers could not be loaded. Please try again.'));
-        this.loadingCustomers.set(false);
+        this.recentOrders.set([]);
+        this.orderError.set(
+          apiErrorMessage(error, 'Your recent orders could not be loaded. Please try again.'),
+        );
+        this.loadingOrders.set(false);
       },
     });
   }
 
-  addProduct(product: Product) {
-    if (product.sellingPrice == null || !Number.isFinite(product.sellingPrice)) {
-      this.error.set(`${product.name} has no valid selling price and cannot be added.`);
+  addProduct(product: CashierProduct) {
+    if (
+      product.sellingPrice == null ||
+      !Number.isFinite(product.sellingPrice) ||
+      product.availableQuantity <= 0
+    ) {
+      this.error.set(`${product.name} is not available in this branch.`);
       return;
     }
 
     this.cart.update((items) => {
       const current = items.find((item) => item.product.id === product.id);
       if (current) {
+        if (current.quantity >= product.availableQuantity) return items;
         return items.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item,
+          item.product.id === product.id ? { ...item, product, quantity: item.quantity + 1 } : item,
         );
       }
       return [...items, { product, quantity: 1 }];
@@ -157,7 +255,13 @@ export class CashierDashboard {
       items
         .map((item) =>
           item.product.id === productId
-            ? { ...item, quantity: Math.max(0, item.quantity + amount) }
+            ? {
+                ...item,
+                quantity: Math.max(
+                  0,
+                  Math.min(item.product.availableQuantity, item.quantity + amount),
+                ),
+              }
             : item,
         )
         .filter((item) => item.quantity > 0),
@@ -173,37 +277,21 @@ export class CashierDashboard {
     this.cart.set([]);
   }
 
-  setDiscount(event: Event) {
-    const value = Number((event.target as HTMLInputElement).value);
-    this.discountPercent.set(Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0);
-  }
-
-  selectCustomer(customerId: string) {
-    this.selectedCustomer.set(
-      this.customers().find((customer) => String(customer.id) === customerId) ?? null,
+  isAtStockLimit(product: CashierProduct) {
+    return (
+      (this.cart().find((item) => item.product.id === product.id)?.quantity ?? 0) >=
+      product.availableQuantity
     );
-  }
-
-  onCustomerSaved(customer: Customer) {
-    this.showCustomerForm.set(false);
-    this.customers.update((items) => [
-      customer,
-      ...items.filter((item) => item.id !== customer.id),
-    ]);
-    this.selectedCustomer.set(customer);
   }
 
   startNewOrder() {
     this.cart.set([]);
-    this.selectedCustomer.set(null);
-    this.discountPercent.set(0);
-    this.note.set('');
     this.error.set('');
     this.success.set('');
   }
 
   proceedPayment() {
-    if (!this.cart().length || this.discountPercent() > 0 || this.submitting()) return;
+    if (!this.cart().length || this.submitting()) return;
     if (!this.auth.canRefund()) {
       this.error.set('Order creation is only available to cashiers assigned to a branch.');
       return;
@@ -215,7 +303,7 @@ export class CashierDashboard {
     const scope = this.auth.scopeKey();
     this.ordersApi
       .createOrder({
-        customer: this.selectedCustomer()?.id ? { id: this.selectedCustomer()!.id! } : null,
+        customer: null,
         paymentType: this.paymentType(),
         items: this.cart().map(({ product, quantity }) => ({
           productId: product.id,
@@ -229,12 +317,20 @@ export class CashierDashboard {
           this.submitting.set(false);
           this.success.set(`Order #${order.id} created successfully.`);
           this.cart.set([]);
-          this.discountPercent.set(0);
-          this.note.set('');
+          this.loadProducts();
+          this.loadOrders();
         },
         error: (error: unknown) => {
           if (scope !== this.auth.scopeKey()) return;
           this.submitting.set(false);
+          if (error instanceof HttpErrorResponse && [400, 409].includes(error.status)) {
+            this.error.set(
+              error.status === 409
+                ? 'Order rejected: stock or order state changed. Refresh branch stock and try again.'
+                : 'Order rejected: one or more items, quantities or prices are no longer valid.',
+            );
+            return;
+          }
           this.error.set(
             apiErrorMessage(
               error,

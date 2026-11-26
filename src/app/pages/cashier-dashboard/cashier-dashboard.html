@@ -3,7 +3,7 @@
     <div>
       <p class="eyebrow">POINT OF SALE</p>
       <h1>Create new order</h1>
-      <p class="subtitle">Build a cart, select a customer and review the order.</p>
+      <p class="subtitle">Choose products available in your branch and review the order.</p>
     </div>
     <button class="new-order-button" type="button" (click)="startNewOrder()">
       <span aria-hidden="true">＋</span> New order
@@ -66,12 +66,17 @@
                 } @else {
                   <span class="unavailable-price">Price unavailable</span>
                 }
+                <span>{{ product.availableQuantity }} in stock</span>
               </div>
               <button
                 type="button"
                 class="add-button"
                 [attr.aria-label]="'Add ' + product.name + ' to cart'"
-                [disabled]="product.sellingPrice == null"
+                [disabled]="
+                  product.sellingPrice == null ||
+                  product.availableQuantity < 1 ||
+                  isAtStockLimit(product)
+                "
                 (click)="addProduct(product)"
               >
                 +
@@ -87,7 +92,9 @@
         <div class="cart-title">
           <span class="cart-emoji" aria-hidden="true">🛒</span>
           <div>
-            <h2>Cart <span class="cart-count">{{ itemCount() }}</span></h2>
+            <h2>
+              Cart <span class="cart-count">{{ itemCount() }}</span>
+            </h2>
             <p>{{ itemCount() }} {{ itemCount() === 1 ? 'item' : 'items' }} in this order</p>
           </div>
         </div>
@@ -114,29 +121,42 @@
               <div class="cart-product-mark">{{ productInitial(item.product) }}</div>
               <div class="cart-item-info">
                 <strong>{{ item.product.name }}</strong>
-                <span>{{ (item.product.sellingPrice ?? 0) | currency: 'EUR' }} each</span>
-                <div class="quantity-control" [attr.aria-label]="'Quantity for ' + item.product.name">
+                <span>{{ item.product.sellingPrice ?? 0 | currency: 'EUR' }} each</span>
+                <span>{{ item.product.availableQuantity }} in stock</span>
+                <div
+                  class="quantity-control"
+                  [attr.aria-label]="'Quantity for ' + item.product.name"
+                >
                   <button
                     type="button"
                     [attr.aria-label]="'Decrease ' + item.product.name"
                     (click)="changeQuantity(item.product.id, -1)"
-                  >−</button>
+                  >
+                    −
+                  </button>
                   <span>{{ item.quantity }}</span>
                   <button
                     type="button"
+                    [disabled]="item.quantity >= item.product.availableQuantity"
                     [attr.aria-label]="'Increase ' + item.product.name"
                     (click)="changeQuantity(item.product.id, 1)"
-                  >+</button>
+                  >
+                    +
+                  </button>
                 </div>
               </div>
               <div class="cart-item-end">
-                <strong>{{ (item.product.sellingPrice ?? 0) * item.quantity | currency: 'EUR' }}</strong>
+                <strong>{{
+                  (item.product.sellingPrice ?? 0) * item.quantity | currency: 'EUR'
+                }}</strong>
                 <button
                   type="button"
                   class="delete-button"
                   [attr.aria-label]="'Remove ' + item.product.name"
                   (click)="removeProduct(item.product.id)"
-                >🗑️</button>
+                >
+                  🗑️
+                </button>
               </div>
             </article>
           }
@@ -148,64 +168,13 @@
           <span class="section-icon" aria-hidden="true">▤</span>
           <h3>Order details</h3>
         </div>
-        <div class="detail-row"><span>Subtotal</span><strong>{{ subtotal() | currency: 'EUR' }}</strong></div>
-        <div class="discount-row">
-          <label for="discount">Discount</label>
-          <div class="discount-entry">
-            <input id="discount" type="number" min="0" max="100" [value]="discountPercent()" (input)="setDiscount($event)" />
-            <span>%</span>
-          </div>
-          <strong class="discount-value">−{{ discountAmount() | currency: 'EUR' }}</strong>
+        <div class="detail-row">
+          <span>Subtotal</span><strong>{{ subtotal() | currency: 'EUR' }}</strong>
         </div>
       </section>
     </section>
 
     <aside class="checkout-panel">
-      <section class="panel customer-panel">
-        <div class="panel-heading compact-heading">
-          <div>
-            <h2>Customer</h2>
-            <p>Choose who this order is for</p>
-          </div>
-          <button class="add-customer-button" type="button" (click)="showCustomerForm.set(true)">
-            <span aria-hidden="true">＋</span> Add
-          </button>
-        </div>
-        <label class="select-wrap">
-          <span class="customer-emoji" aria-hidden="true">👤</span>
-          <select
-            aria-label="Select customer"
-            [value]="selectedCustomer()?.id ?? ''"
-            [disabled]="loadingCustomers()"
-            (change)="selectCustomer($any($event.target).value)"
-          >
-            <option value="">Walk-in customer</option>
-            @for (customer of customers(); track customer.id) {
-              <option [value]="customer.id">{{ customer.fullName }}</option>
-            }
-          </select>
-          <span class="select-arrow" aria-hidden="true">⌄</span>
-        </label>
-        @if (loadingCustomers()) {
-          <p class="field-hint">Loading customers...</p>
-        }
-      </section>
-
-      <section class="panel note-panel">
-        <div class="section-title">
-          <span class="section-icon" aria-hidden="true">✎</span>
-          <h3>Order note</h3>
-          <span class="optional">Optional</span>
-        </div>
-        <textarea
-          rows="3"
-          placeholder="Add a note for this order..."
-          [value]="note()"
-          (input)="note.set($any($event.target).value)"
-        ></textarea>
-        <p class="field-hint">Notes are not saved by the current order API.</p>
-      </section>
-
       <section class="payment-card">
         <div class="section-title">
           <span class="section-icon" aria-hidden="true">€</span>
@@ -217,7 +186,9 @@
               type="button"
               [class.selected]="paymentType() === method"
               (click)="paymentType.set($any(method))"
-            >{{ method }}</button>
+            >
+              {{ method }}
+            </button>
           }
         </div>
       </section>
@@ -227,13 +198,10 @@
           <span>Total amount</span>
           <strong>{{ total() | currency: 'EUR' }}</strong>
         </div>
-        @if (discountPercent() > 0) {
-          <p class="checkout-warning">The order API does not store discounts. Remove the discount to proceed.</p>
-        }
         <button
           class="checkout-button"
           type="button"
-          [disabled]="!cart().length || submitting() || discountPercent() > 0"
+          [disabled]="!cart().length || submitting()"
           (click)="proceedPayment()"
         >
           @if (submitting()) {
@@ -245,12 +213,33 @@
       </footer>
     </aside>
   </div>
-</section>
 
-@if (showCustomerForm()) {
-  <app-customer-form
-    language="en"
-    (saved)="onCustomerSaved($event)"
-    (closed)="showCustomerForm.set(false)"
-  />
-}
+  <section class="recent-orders panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Your recent orders</h2>
+        <p>Only orders created by your cashier account are shown.</p>
+      </div>
+      <button type="button" class="new-order-button" (click)="loadOrders()">
+        {{ loadingOrders() ? 'Refreshing…' : 'Refresh history' }}
+      </button>
+    </div>
+    @if (orderError()) {
+      <p class="notice notice-error" role="alert">{{ orderError() }}</p>
+    } @else if (loadingOrders()) {
+      <p class="empty-state">Loading your orders…</p>
+    } @else if (!recentOrders().length) {
+      <p class="empty-state">You have not created any orders yet.</p>
+    } @else {
+      <div class="recent-order-list">
+        @for (order of recentOrders(); track order.id) {
+          <div class="recent-order-row">
+            <strong>Order #{{ order.id }}</strong>
+            <span>{{ order.items.length }} items</span>
+            <strong>{{ order.totalAmount | currency: 'EUR' }}</strong>
+          </div>
+        }
+      </div>
+    }
+  </section>
+</section>

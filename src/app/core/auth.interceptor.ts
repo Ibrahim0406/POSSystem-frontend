@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   const token = auth.token();
+  const requestToken = token;
 
   // Backend ocekuje "Bearer <jwt>" (JWTValidator radi substring(7))
   const authReq =
@@ -15,7 +16,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(authReq).pipe(
     catchError((err) => {
-      if (err.status === 401 && !req.url.startsWith('/auth') && auth.isLoggedIn()) {
+      if (
+        err.status === 401 &&
+        !req.url.startsWith('/auth') &&
+        auth.isLoggedIn() &&
+        auth.token() === requestToken
+      ) {
         auth.logout();
       }
       return throwError(() => err);

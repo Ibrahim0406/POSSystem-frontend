@@ -57,7 +57,9 @@ export interface Order {
     email?: string | null;
   } | null;
   paymentType?: PaymentType | null;
+  branchId?: number | null;
   branch?: { id: number; name?: string } | null;
+  cashierId?: number | null;
   cashier?: { id: number; fullName?: string } | null;
   items: OrderItem[];
 }
@@ -105,6 +107,9 @@ export interface Refund {
   orderId?: number | null;
   order?: { id: number } | null;
   branchId?: number | null;
+  cashierId?: number | null;
+  cashier?: { id?: number | null; fullName?: string | null; branchId?: number | null } | null;
+  branch?: { id?: number | null } | null;
 }
 
 export interface RefundRequest {
