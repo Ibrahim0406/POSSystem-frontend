@@ -393,6 +393,40 @@ textarea::placeholder {
   padding-top: 15px;
 }
 
+.customer-picker {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 12px;
+  color: #64736a;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.customer-picker select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid #e3e9e4;
+  border-radius: 7px;
+  background: #fff;
+  color: #34443b;
+  font: inherit;
+}
+
+.customer-status,
+.customer-error {
+  margin: -4px 0 11px;
+  font-size: 10px;
+}
+
+.customer-status {
+  color: #84918b;
+}
+
+.customer-error {
+  color: #b94e48;
+}
+
 .section-title {
   gap: 8px;
   margin-bottom: 14px;

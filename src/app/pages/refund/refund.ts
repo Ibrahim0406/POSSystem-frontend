@@ -2,10 +2,11 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
 import { distinctUntilChanged, forkJoin, skip } from 'rxjs';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../../core/auth.service';
-import { Order, OrderItem, PaymentType } from '../../core/models';
+import { Order, OrderItem, PaymentType, Refund as RefundRecord } from '../../core/models';
 import { OrderService } from '../../core/order.service';
 import { toDate } from '../../core/loyalty';
 import { RefundService } from '../../core/refund.service';
@@ -22,12 +23,20 @@ export class Refund {
   private readonly api = inject(OrderService);
   private readonly refundsApi = inject(RefundService);
   private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly orders = signal<Order[]>([]);
+  readonly refunds = signal<RefundRecord[]>([]);
   readonly loading = signal(true);
   readonly error = signal('');
   readonly query = signal('');
   readonly selectedOrder = signal<Order | null>(null);
+  readonly selectedRefund = computed(() => {
+    const orderId = this.selectedOrder()?.id;
+    return orderId == null
+      ? null
+      : (this.refunds().find((refund) => (refund.orderId ?? refund.order?.id) === orderId) ?? null);
+  });
   readonly returnItemIds = signal<number[]>([]);
   readonly returnQuantities = signal<Record<number, number>>({});
   readonly refundedOrderIds = signal<Set<number>>(new Set());
@@ -48,10 +57,7 @@ export class Refund {
           !query ||
           String(order.id).includes(orderQuery) ||
           customer.toLocaleLowerCase().includes(query);
-        const hasReturnableItems = order.items.some(
-          (item) => this.remainingQuantity(order, item) > 0,
-        );
-        return matchesSearch && hasReturnableItems && this.isOwnBranchOrder(order);
+        return matchesSearch && this.isOwnBranchOrder(order);
       })
       .sort((a, b) => this.timestamp(b.createdAt) - this.timestamp(a.createdAt));
   });
@@ -80,6 +86,7 @@ export class Refund {
       .pipe(distinctUntilChanged(), skip(1), takeUntilDestroyed())
       .subscribe(() => {
         this.orders.set([]);
+        this.refunds.set([]);
         this.refundedOrderIds.set(new Set());
         this.selectedOrder.set(null);
         this.returnItemIds.set([]);
@@ -100,7 +107,6 @@ export class Refund {
     this.error.set('');
     this.orders.set([]);
     this.selectedOrder.set(null);
-    this.refundedOrderIds.set(new Set());
     const user = this.auth.user();
     const scope = this.auth.scopeKey();
     if (!this.auth.canRefund()) {
@@ -123,24 +129,46 @@ export class Refund {
         const ownOrders = orders.filter(
           (order) => this.isOwnBranchOrder(order) && this.isOwnCashierOrder(order),
         );
+        const ownOrderIds = new Set(ownOrders.map((order) => order.id));
         const ownRefunds = refunds.filter(
-          (refund) =>
-            (refund.branch?.id ?? refund.branchId) === user.branchId &&
-            (refund.cashier?.id ?? refund.cashierId) === user.id,
+          (refund) => {
+            const orderId = refund.orderId ?? refund.order?.id;
+            const branchId = refund.branch?.id ?? refund.branchId;
+            const cashierId = refund.cashier?.id ?? refund.cashierId;
+            return (
+              orderId != null &&
+              ownOrderIds.has(orderId) &&
+              (branchId == null || branchId === user.branchId) &&
+              (cashierId == null || cashierId === user.id)
+            );
+          },
         );
+        const mergedRefunds = new Map<number, RefundRecord>();
+        for (const refund of this.refunds()) {
+          const orderId = refund.orderId ?? refund.order?.id;
+          if (orderId != null && ownOrderIds.has(orderId)) mergedRefunds.set(orderId, refund);
+        }
+        for (const refund of ownRefunds) {
+          const orderId = refund.orderId ?? refund.order?.id;
+          if (orderId != null) mergedRefunds.set(orderId, refund);
+        }
+        const currentRefunds = [...mergedRefunds.values()];
         this.orders.set(ownOrders);
+        this.refunds.set(currentRefunds);
         this.refundedOrderIds.set(
           new Set(
-            ownRefunds
+            currentRefunds
               .map((refund) => refund.orderId ?? refund.order?.id)
               .filter((orderId): orderId is number => orderId != null),
           ),
         );
+        this.openRequestedOrder(ownOrders);
         this.loading.set(false);
       },
       error: (error: unknown) => {
         if (scope !== this.auth.scopeKey()) return;
         this.orders.set([]);
+        this.refunds.set([]);
         this.refundedOrderIds.set(new Set());
         this.error.set(
           apiErrorMessage(
@@ -156,8 +184,7 @@ export class Refund {
   openOrder(order: Order) {
     if (
       !this.isOwnBranchOrder(order) ||
-      !this.isOwnCashierOrder(order) ||
-      this.refundedOrderIds().has(order.id)
+      !this.isOwnCashierOrder(order)
     ) {
       return;
     }
@@ -167,6 +194,14 @@ export class Refund {
     this.returnReason.set('');
     this.confirming.set(false);
     this.successMessage.set('');
+  }
+
+  private openRequestedOrder(orders: Order[]) {
+    const requestedOrderId = Number(this.route.snapshot.queryParamMap.get('orderId'));
+    if (!Number.isSafeInteger(requestedOrderId) || requestedOrderId <= 0) return;
+    this.query.set(String(requestedOrderId));
+    const order = orders.find((candidate) => candidate.id === requestedOrderId);
+    if (order) this.openOrder(order);
   }
 
   backToSearch() {
@@ -226,9 +261,21 @@ export class Refund {
         reason: this.returnReason().trim(),
       })
       .subscribe({
-        next: () => {
+        next: (createdRefund) => {
           if (scope !== this.auth.scopeKey()) return;
           this.saving.set(false);
+          const savedRefund: RefundRecord = {
+            ...createdRefund,
+            orderId: createdRefund.orderId ?? createdRefund.order?.id ?? order.id,
+            branchId: createdRefund.branchId ?? this.auth.user()?.branchId,
+            cashierId: createdRefund.cashierId ?? this.auth.user()?.id,
+          };
+          this.refunds.update((refunds) => [
+            ...refunds.filter(
+              (refund) => (refund.orderId ?? refund.order?.id) !== order.id,
+            ),
+            savedRefund,
+          ]);
           this.refundedOrderIds.update((ids) => new Set(ids).add(order.id));
           this.successMessage.set(`Refund recorded for order #${order.id}.`);
           this.selectedOrder.set(null);
@@ -242,6 +289,7 @@ export class Refund {
           this.confirming.set(false);
           if (error instanceof HttpErrorResponse && [403, 404].includes(error.status)) {
             this.orders.set([]);
+            this.refunds.set([]);
             this.refundedOrderIds.set(new Set());
             this.selectedOrder.set(null);
           }

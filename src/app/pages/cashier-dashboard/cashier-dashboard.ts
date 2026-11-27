@@ -6,6 +6,7 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth.service';
 import { BranchService } from '../../core/branch.service';
 import { Customer, Order, PaymentType, Product } from '../../core/models';
+import { CustomerService } from '../../core/customer.service';
 import { OrderService } from '../../core/order.service';
 import { ProductService } from '../../core/product.service';
 import { StoreOperationsService } from '../../core/store-operations.service';
@@ -32,6 +33,7 @@ interface CartItem {
 export class CashierDashboard {
   private readonly auth = inject(AuthService);
   private readonly branches = inject(BranchService);
+  private readonly customersApi = inject(CustomerService);
   private readonly ordersApi = inject(OrderService);
   private readonly productsApi = inject(ProductService);
   private readonly storeApi = inject(StoreOperationsService);
@@ -39,14 +41,18 @@ export class CashierDashboard {
   readonly canCreateCustomers = this.auth.canCreateCustomers;
   readonly products = signal<CashierProduct[]>([]);
   readonly recentOrders = signal<Order[]>([]);
+  readonly customers = signal<Customer[]>([]);
   readonly cart = signal<CartItem[]>([]);
   readonly search = signal('');
+  readonly selectedCustomerId = signal<number | null>(null);
   readonly paymentType = signal<PaymentType>('CASH');
   readonly loadingProducts = signal(true);
   readonly loadingOrders = signal(true);
+  readonly loadingCustomers = signal(true);
   readonly submitting = signal(false);
   readonly showCustomerForm = signal(false);
   readonly orderError = signal('');
+  readonly customerError = signal('');
   readonly error = signal('');
   readonly success = signal('');
 
@@ -74,6 +80,7 @@ export class CashierDashboard {
   constructor() {
     this.loadProducts();
     this.loadOrders();
+    this.loadCustomers();
     toObservable(computed(() => this.auth.scopeKey()))
       .pipe(distinctUntilChanged(), skip(1), takeUntilDestroyed())
       .subscribe(() => {
@@ -81,6 +88,7 @@ export class CashierDashboard {
         if (this.auth.isLoggedIn() && this.auth.role() === 'BRANCH_CASHIER') {
           this.loadProducts();
           this.loadOrders();
+          this.loadCustomers();
         }
       });
   }
@@ -88,12 +96,16 @@ export class CashierDashboard {
   private clearTenantState() {
     this.products.set([]);
     this.recentOrders.set([]);
+    this.customers.set([]);
     this.cart.set([]);
     this.search.set('');
+    this.selectedCustomerId.set(null);
     this.loadingProducts.set(false);
     this.loadingOrders.set(false);
+    this.loadingCustomers.set(false);
     this.submitting.set(false);
     this.orderError.set('');
+    this.customerError.set('');
     this.error.set('');
     this.success.set('');
     this.showCustomerForm.set(false);
@@ -104,8 +116,48 @@ export class CashierDashboard {
   }
 
   onCustomerSaved(_customer: Customer) {
+    if (_customer.id != null) {
+      this.customers.update((customers) => [
+        ...customers.filter((customer) => customer.id !== _customer.id),
+        _customer,
+      ]);
+      this.selectedCustomerId.set(_customer.id);
+    }
     this.showCustomerForm.set(false);
     this.success.set('Customer created successfully.');
+  }
+
+  loadCustomers() {
+    const scope = this.auth.scopeKey();
+    this.customers.set([]);
+    this.selectedCustomerId.set(null);
+    this.customerError.set('');
+    this.loadingCustomers.set(true);
+    if (!this.auth.canAccessCustomers()) {
+      this.loadingCustomers.set(false);
+      return;
+    }
+
+    this.customersApi.getAll().subscribe({
+      next: (customers) => {
+        if (scope !== this.auth.scopeKey()) return;
+        this.customers.set(customers);
+        this.loadingCustomers.set(false);
+      },
+      error: (error: unknown) => {
+        if (scope !== this.auth.scopeKey()) return;
+        this.customers.set([]);
+        this.customerError.set(
+          apiErrorMessage(error, 'Customers could not be loaded. Please try again.'),
+        );
+        this.loadingCustomers.set(false);
+      },
+    });
+  }
+
+  selectCustomer(event: Event) {
+    const id = Number((event.target as HTMLSelectElement).value);
+    this.selectedCustomerId.set(Number.isInteger(id) && id > 0 ? id : null);
   }
 
   loadProducts() {
@@ -314,9 +366,12 @@ export class CashierDashboard {
     this.success.set('');
     this.submitting.set(true);
     const scope = this.auth.scopeKey();
+    const selectedCustomer = this.customers().find(
+      (customer) => customer.id === this.selectedCustomerId(),
+    );
     this.ordersApi
       .createOrder({
-        customer: null,
+        customer: selectedCustomer?.id != null ? { id: selectedCustomer.id } : null,
         paymentType: this.paymentType(),
         items: this.cart().map(({ product, quantity }) => ({
           productId: product.id,
@@ -330,6 +385,7 @@ export class CashierDashboard {
           this.submitting.set(false);
           this.success.set(`Order #${order.id} created successfully.`);
           this.cart.set([]);
+          this.selectedCustomerId.set(null);
           this.loadProducts();
           this.loadOrders();
         },

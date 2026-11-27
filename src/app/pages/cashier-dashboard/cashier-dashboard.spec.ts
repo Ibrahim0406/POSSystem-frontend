@@ -3,7 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { BranchService } from '../../core/branch.service';
-import { Order } from '../../core/models';
+import { Customer, Order } from '../../core/models';
+import { CustomerService } from '../../core/customer.service';
 import { OrderService } from '../../core/order.service';
 import { ProductService } from '../../core/product.service';
 import { StoreOperationsService } from '../../core/store-operations.service';
@@ -13,12 +14,14 @@ describe('CashierDashboard', () => {
   type User = { id: number; branchId: number; storeId: number } | null;
   let updateUser: (user: User) => void;
   let createOrder: ReturnType<typeof vi.fn>;
+  let getCustomers: ReturnType<typeof vi.fn>;
   let getByBranch: ReturnType<typeof vi.fn>;
   let getByStore: ReturnType<typeof vi.fn>;
   let getInventory: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     createOrder = vi.fn(() => of({ id: 42 } as Order));
+    getCustomers = vi.fn(() => of([{ id: 29, fullName: 'Alex Morgan' } as Customer]));
     getByBranch = vi.fn(() => of([]));
     getByStore = vi.fn(() => of([]));
     getInventory = vi.fn(() => of([]));
@@ -43,8 +46,10 @@ describe('CashierDashboard', () => {
             }),
             canRefund: computed(() => role() === 'BRANCH_CASHIER'),
             canCreateCustomers: computed(() => role() === 'BRANCH_CASHIER'),
+            canAccessCustomers: computed(() => role() === 'BRANCH_CASHIER'),
           },
         },
+        { provide: CustomerService, useValue: { getAll: getCustomers } },
         { provide: BranchService, useValue: { getById: () => of({ id: 7, storeId: 2 }) } },
         { provide: ProductService, useValue: { getByStore } },
         { provide: StoreOperationsService, useValue: { getInventory } },
@@ -77,6 +82,28 @@ describe('CashierDashboard', () => {
     expect(fixture.nativeElement.textContent).toContain('Add customer');
     component.openCustomerForm();
     expect(component.showCustomerForm()).toBe(true);
+  });
+
+  it('loads customers for the cashier and submits the selected customer with the order', () => {
+    const component = TestBed.createComponent(CashierDashboard).componentInstance;
+    component.addProduct({
+      id: 1,
+      name: 'Coffee',
+      sku: 'CF-1',
+      sellingPrice: 8,
+      availableQuantity: 3,
+    });
+    component.selectedCustomerId.set(29);
+
+    component.proceedPayment();
+
+    expect(getCustomers).toHaveBeenCalled();
+    expect(component.customers()).toEqual([{ id: 29, fullName: 'Alex Morgan' }]);
+    expect(createOrder).toHaveBeenCalledWith({
+      customer: { id: 29 },
+      paymentType: 'CASH',
+      items: [{ productId: 1, quantity: 1, price: 8 }],
+    });
   });
 
   it('limits cart quantity to branch stock and calculates read-only totals', () => {

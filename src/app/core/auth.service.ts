@@ -63,7 +63,8 @@ export class AuthService {
     return (
       this.role() === 'STORE_ADMIN' ||
       (this.role() === 'STORE_MANAGER' && this.hasStoreScope()) ||
-      (this.role() === 'BRANCH_MANAGER' && this.hasBranchScope())
+      ((this.role() === 'BRANCH_MANAGER' || this.role() === 'BRANCH_CASHIER') &&
+        this.hasBranchScope())
     );
   });
   readonly canCreateCustomers = computed(() => {

@@ -251,15 +251,17 @@
       </section>
 
       <footer class="modal-actions">
-        <button
-          hlmBtn
-          variant="destructive"
-          type="button"
-          class="secondary-button"
-          (click)="closeDetails()"
-        >
-          Initiate return
-        </button>
+        @if (canInitiateReturn()) {
+          <button
+            hlmBtn
+            variant="destructive"
+            type="button"
+            class="secondary-button"
+            (click)="initiateReturn()"
+          >
+            Initiate return
+          </button>
+        }
         <div>
           <button
             hlmBtn
