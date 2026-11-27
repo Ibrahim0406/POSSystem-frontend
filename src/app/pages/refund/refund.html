@@ -7,7 +7,9 @@
     <header class="page-heading">
       <div>
         <p class="eyebrow">RETURNS</p>
-        <h1>Return order #{{ order.id }}</h1>
+        <h1>
+          {{ selectedRefund() ? 'Refund details for order #' : 'Return order #' }}{{ order.id }}
+        </h1>
       </div>
     </header>
     @if (error()) {
@@ -45,6 +47,22 @@
               <dt>Order total</dt>
               <dd>{{ order.totalAmount | currency: 'EUR' }}</dd>
             </div>
+            <div class="summary-total">
+              <dt>Refund status</dt>
+              <dd>{{ selectedRefund() ? 'Refunded' : 'Not refunded' }}</dd>
+            </div>
+            @if (selectedRefund(); as refund) {
+              <div>
+                <dt>Refund amount</dt>
+                <dd>{{ refund.amount | currency: 'EUR' }}</dd>
+              </div>
+              @if (refund.reason) {
+                <div>
+                  <dt>Reason</dt>
+                  <dd>{{ refund.reason }}</dd>
+                </div>
+              }
+            }
           </dl>
         </section>
 
@@ -62,6 +80,7 @@
                   <th>Item</th>
                   <th>Qty</th>
                   <th>Price</th>
+                  <th>Refund status</th>
                   <th class="amount-cell">Total</th>
                 </tr>
               </thead>
@@ -71,10 +90,17 @@
                     <td>{{ item.product?.name || 'Product #' + item.productId }}</td>
                     <td>{{ item.quantity }}</td>
                     <td>{{ unitPrice(item) | currency: 'EUR' }}</td>
+                    <td>
+                      {{
+                        selectedRefund()
+                          ? 'Item details not tracked'
+                          : 'Not refunded'
+                      }}
+                    </td>
                     <td class="amount-cell">{{ item.price | currency: 'EUR' }}</td>
                   </tr>
                 } @empty {
-                  <tr><td colspan="4" class="empty-row">No items in this order.</td></tr>
+                  <tr><td colspan="5" class="empty-row">No items in this order.</td></tr>
                 }
               </tbody>
             </table>
@@ -83,6 +109,22 @@
       </div>
 
       <div class="right-column">
+        @if (selectedRefund(); as refund) {
+          <section class="card recorded-refund">
+            <p class="eyebrow">REFUND RECORDED</p>
+            <h2>This order has a refund</h2>
+            <p>
+              Refund amount: <strong>{{ refund.amount | currency: 'EUR' }}</strong>
+            </p>
+            @if (refund.reason) {
+              <p>Reason: {{ refund.reason }}</p>
+            }
+            <p class="refund-limitation">
+              The backend records refunds per order, not per item. The exact returned products and
+              quantities are unavailable.
+            </p>
+          </section>
+        } @else {
         <section class="card return-items">
           <div class="section-heading">
             <div>
@@ -172,6 +214,7 @@
             {{ saving() ? 'Recording refund…' : 'Process refund' }}
           </button>
         </section>
+        }
       </div>
     </div>
   } @else {
@@ -233,6 +276,7 @@
                 <th>Customer</th>
                 <th class="amount-cell">Amount</th>
                 <th>Payment type</th>
+                <th>Refund status</th>
                 <th><span class="visually-hidden">Actions</span></th>
               </tr>
             </thead>
@@ -244,6 +288,14 @@
                   <td>{{ customerName(order) }}</td>
                   <td class="amount-cell">{{ order.totalAmount | currency: 'EUR' }}</td>
                   <td><span class="payment-tag">{{ paymentLabel(order.paymentType) }}</span></td>
+                  <td>
+                    <span
+                      class="refund-status"
+                      [class.refunded]="refundedOrderIds().has(order.id)"
+                    >
+                      {{ refundedOrderIds().has(order.id) ? 'Refunded' : 'Not refunded' }}
+                    </span>
+                  </td>
                   <td class="action-cell">
                     <button
                       hlmBtn
@@ -251,7 +303,7 @@
                       type="button"
                       (click)="openOrder(order)"
                     >
-                      Select for Return
+                      {{ refundedOrderIds().has(order.id) ? 'View refund' : 'Select for Return' }}
                     </button>
                   </td>
                 </tr>
