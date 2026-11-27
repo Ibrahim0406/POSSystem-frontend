@@ -7,6 +7,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { distinctUntilChanged, skip } from 'rxjs';
 import { HlmButton } from '@spartan-ng/helm/button';
@@ -29,7 +30,9 @@ export class OrderHistory {
   private api = inject(OrderService);
   private auth = inject(AuthService);
   private document = inject(DOCUMENT);
+  private router = inject(Router);
 
+  readonly canInitiateReturn = this.auth.canRefund;
   readonly orders = signal<Order[]>([]);
   readonly selectedOrder = signal<Order | null>(null);
   readonly loading = signal(true);
@@ -135,6 +138,12 @@ export class OrderHistory {
 
   closeDetails() {
     this.selectedOrder.set(null);
+  }
+
+  initiateReturn() {
+    const order = this.selectedOrder();
+    if (!order || !this.canInitiateReturn()) return;
+    void this.router.navigate(['/refund'], { queryParams: { orderId: order.id } });
   }
 
   @HostListener('document:keydown.escape')

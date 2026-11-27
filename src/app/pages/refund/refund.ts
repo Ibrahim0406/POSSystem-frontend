@@ -2,6 +2,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
 import { distinctUntilChanged, forkJoin, skip } from 'rxjs';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../../core/auth.service';
@@ -22,6 +23,7 @@ export class Refund {
   private readonly api = inject(OrderService);
   private readonly refundsApi = inject(RefundService);
   private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly orders = signal<Order[]>([]);
   readonly refunds = signal<RefundRecord[]>([]);
@@ -160,6 +162,7 @@ export class Refund {
               .filter((orderId): orderId is number => orderId != null),
           ),
         );
+        this.openRequestedOrder(ownOrders);
         this.loading.set(false);
       },
       error: (error: unknown) => {
@@ -191,6 +194,14 @@ export class Refund {
     this.returnReason.set('');
     this.confirming.set(false);
     this.successMessage.set('');
+  }
+
+  private openRequestedOrder(orders: Order[]) {
+    const requestedOrderId = Number(this.route.snapshot.queryParamMap.get('orderId'));
+    if (!Number.isSafeInteger(requestedOrderId) || requestedOrderId <= 0) return;
+    this.query.set(String(requestedOrderId));
+    const order = orders.find((candidate) => candidate.id === requestedOrderId);
+    if (order) this.openOrder(order);
   }
 
   backToSearch() {

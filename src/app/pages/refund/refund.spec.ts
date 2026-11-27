@@ -1,11 +1,16 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { Order } from '../../core/models';
 import { OrderService } from '../../core/order.service';
 import { RefundService } from '../../core/refund.service';
 import { Refund } from './refund';
+
+const routeWithOrderId = (orderId?: string) => ({
+  snapshot: { queryParamMap: convertToParamMap(orderId ? { orderId } : {}) },
+});
 
 describe('Refund', () => {
   it('lists only the cashier’s own branch orders and refunds', async () => {
@@ -22,6 +27,7 @@ describe('Refund', () => {
     TestBed.configureTestingModule({
       imports: [Refund],
       providers: [
+        { provide: ActivatedRoute, useValue: routeWithOrderId() },
         {
           provide: AuthService,
           useValue: {
@@ -78,6 +84,7 @@ describe('Refund', () => {
     TestBed.configureTestingModule({
       imports: [Refund],
       providers: [
+        { provide: ActivatedRoute, useValue: routeWithOrderId() },
         {
           provide: AuthService,
           useValue: {
@@ -135,6 +142,7 @@ describe('Refund', () => {
     TestBed.configureTestingModule({
       imports: [Refund],
       providers: [
+        { provide: ActivatedRoute, useValue: routeWithOrderId() },
         {
           provide: AuthService,
           useValue: {
@@ -166,5 +174,40 @@ describe('Refund', () => {
 
     expect(create).toHaveBeenCalledOnce();
     expect(component.error()).toContain('Refund rejected: A refund already exists');
+  });
+
+  it('opens the requested order from the order history handoff', async () => {
+    const ownOrder: Order = {
+      id: 11,
+      branchId: 7,
+      cashierId: 5,
+      createdAt: '2026-11-25T10:00:00Z',
+      totalAmount: 20,
+      items: [],
+    };
+
+    TestBed.configureTestingModule({
+      imports: [Refund],
+      providers: [
+        { provide: ActivatedRoute, useValue: routeWithOrderId('11') },
+        {
+          provide: AuthService,
+          useValue: {
+            user: () => ({ id: 5, branchId: 7 }),
+            scopeKey: () => '5:ROLE_BRANCH_CASHIER:7',
+            canRefund: () => true,
+          },
+        },
+        { provide: OrderService, useValue: { getByBranch: () => of([ownOrder]) } },
+        { provide: RefundService, useValue: { getByBranch: () => of([]), create: vi.fn() } },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(Refund);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.selectedOrder()).toEqual(ownOrder);
+    expect(fixture.nativeElement.textContent).toContain('Return order #11');
   });
 });
