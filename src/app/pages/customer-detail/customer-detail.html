@@ -17,10 +17,12 @@
         }
       </div>
     </div>
-    <div class="btns">
-      <button hlmBtn variant="outline" (click)="editing.set(true)">Edit</button>
-      <button hlmBtn variant="destructive" (click)="remove()">Delete</button>
-    </div>
+    @if (canManageCustomer()) {
+      <div class="btns">
+        <button hlmBtn variant="outline" (click)="editing.set(true)">Edit</button>
+        <button hlmBtn variant="destructive" (click)="remove()">Delete</button>
+      </div>
+    }
   </section>
 
   @if (error()) {
@@ -93,7 +95,7 @@
     </div>
   }
 
-  @if (editing()) {
+  @if (editing() && canManageCustomer()) {
     <app-customer-form
       [customer]="c"
       language="en"

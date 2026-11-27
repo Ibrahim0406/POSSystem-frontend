@@ -175,14 +175,35 @@
           <span class="section-icon" aria-hidden="true">▤</span>
           <h3>Order details</h3>
         </div>
+
         <div class="detail-row">
           <span>Subtotal</span><strong>{{ subtotal() | currency: 'EUR' }}</strong>
         </div>
       </section>
-
     </section>
 
     <aside class="checkout-panel">
+      <label class="customer-picker">
+        <span>Customer (optional)</span>
+        <select
+          aria-label="Select customer for order"
+          [value]="selectedCustomerId() ?? ''"
+          [disabled]="loadingCustomers() || !!customerError()"
+          (change)="selectCustomer($event)"
+        >
+          <option value="">Walk-in customer</option>
+          @for (customer of customers(); track customer.id) {
+            <option [value]="customer.id">{{ customer.fullName }}</option>
+          }
+        </select>
+      </label>
+      @if (loadingCustomers()) {
+        <p class="customer-status">Loading customers...</p>
+      } @else if (customerError()) {
+        <p class="customer-error" role="alert">{{ customerError() }}</p>
+      } @else if (!customers().length) {
+        <p class="customer-status">No customers available. You can continue as a walk-in.</p>
+      }
       <section class="payment-card">
         <div class="section-title">
           <span class="section-icon" aria-hidden="true">€</span>

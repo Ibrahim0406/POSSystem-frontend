@@ -31,6 +31,9 @@ export class CustomerDetail {
   error = signal('');
   editing = signal(false);
   expanded = signal<Set<number>>(new Set());
+  canManageCustomer = computed(
+    () => this.auth.canAccessCustomers() && this.auth.role() !== 'BRANCH_CASHIER',
+  );
 
   spendPerPoint = SPEND_PER_POINT;
   date = toDate;
@@ -90,11 +93,13 @@ export class CustomerDetail {
   }
 
   onSaved(c: Customer) {
+    if (!this.canManageCustomer()) return;
     this.customer.set(c);
     this.editing.set(false);
   }
 
   remove() {
+    if (!this.canManageCustomer()) return;
     const c = this.customer();
     if (!c?.id || !confirm(`Delete customer "${c.fullName}"?`)) return;
     const scope = this.auth.scopeKey();
